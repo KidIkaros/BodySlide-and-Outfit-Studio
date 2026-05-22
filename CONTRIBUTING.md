@@ -14,7 +14,7 @@ Thank you for your interest in contributing to PolyForge! This document provides
 
 ## Code Style
 
-- Follow the existing code style (see `.clang-format`)
+- Follow the existing code style
 - Use meaningful variable and function names
 - Add comments for complex logic
 - Keep functions focused and small
