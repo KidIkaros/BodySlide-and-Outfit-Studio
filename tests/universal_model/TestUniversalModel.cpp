@@ -256,9 +256,7 @@ bool TestImageDataValidation() {
 	REQUIRE(img.IsValid());
 	
 	return true;
-}
-
-// Test: EdgeAwareUpsample functionality
+}	// Test: EdgeAwareUpsample functionality
 bool TestEdgeAwareUpsample() {
 	DepthEstimator estimator;
 	DepthEstimationConfig config;
@@ -274,6 +272,7 @@ bool TestEdgeAwareUpsample() {
 	}
 	
 	// Add a depth discontinuity (edge) at x=2
+	// Right half (x>=2) has depth 0.5, left half has depth 1.0
 	input.depth[2] = 0.5f;
 	input.depth[3] = 0.5f;
 	input.depth[6] = 0.5f;
@@ -303,6 +302,28 @@ bool TestEdgeAwareUpsample() {
 	for (size_t i = 0; i < output.depth.size(); ++i) {
 		REQUIRE(output.depth[i] > 0.0f);
 	}
+	
+	// Verify edge preservation - the depth discontinuity should cause
+	// measurable difference between left and right halves of the output
+	float leftAvg = 0.0f, rightAvg = 0.0f;
+	int leftCount = 0, rightCount = 0;
+	for (int y = 0; y < 8; ++y) {
+		for (int x = 0; x < 4; ++x) {
+			leftAvg += output.depth[y * 8 + x];
+			leftCount++;
+		}
+		for (int x = 4; x < 8; ++x) {
+			rightAvg += output.depth[y * 8 + x];
+			rightCount++;
+		}
+	}
+	leftAvg /= leftCount;
+	rightAvg /= rightCount;
+	
+	// The edge should cause a measurable difference between halves
+	// Left side (near original x=0-1) should average ~1.0
+	// Right side (near original x=2-3) should average ~0.5
+	REQUIRE(std::abs(leftAvg - rightAvg) > 0.1f);
 	
 	return true;
 }
