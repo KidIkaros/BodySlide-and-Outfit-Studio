@@ -70,7 +70,7 @@ jobs:
 
       - name: Run tests
         shell: pwsh
-        run: ctest --test-dir build/windows-x64-release -C \"$env:BUILD_TYPE\" --output-on-failure || true
+        run: ctest --test-dir build/windows-x64-release -C \"$env:BUILD_TYPE\" --output-on-failure
 
       - name: Verify outputs
         shell: pwsh
@@ -134,7 +134,7 @@ jobs:
         run: cmake --build build/ubuntu-gcc-release --target PolyForge TestUniversalModel --parallel
 
       - name: Run tests
-        run: ctest --test-dir build/ubuntu-gcc-release --output-on-failure || true
+        run: ctest --test-dir build/ubuntu-gcc-release --output-on-failure
 
       - name: Verify outputs
         run: |
