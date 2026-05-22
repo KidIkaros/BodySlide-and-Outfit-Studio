@@ -316,6 +316,181 @@ bool TestEdgeAwareUpsample() {
 	return true;
 }
 
+// Test: PointCloudToMesh edge cases
+bool TestPointCloudToMeshEdgeCases() {
+	MeshReconstructor reconstructor;
+	MeshReconstructionConfig config;
+	reconstructor.SetConfig(config);
+	
+	// Test 1: Empty point cloud should return nullptr or empty mesh
+	std::vector<Vertex> emptyCloud;
+	auto result1 = reconstructor.PointCloudToMesh(emptyCloud);
+	REQUIRE(result1 == nullptr || result1->vertices.empty());
+	
+	// Test 2: Single point should return nullptr or minimal mesh
+	std::vector<Vertex> singlePointCloud;
+	singlePointCloud.push_back({0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0});
+	auto result2 = reconstructor.PointCloudToMesh(singlePointCloud);
+	REQUIRE(result2 == nullptr || result2->vertices.size() <= 1);
+	
+	// Test 3: Two points (insufficient for mesh)
+	std::vector<Vertex> twoPointCloud;
+	twoPointCloud.push_back({0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0});
+	twoPointCloud.push_back({1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1});
+	auto result3 = reconstructor.PointCloudToMesh(twoPointCloud);
+	// Two points cannot form triangles, should return minimal result
+	REQUIRE(result3 == nullptr || result3->vertices.size() <= 2);
+	
+	// Test 4: Four points forming a square (can form two triangles)
+	std::vector<Vertex> quadCloud;
+	quadCloud.push_back({0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0});
+	quadCloud.push_back({1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1});
+	quadCloud.push_back({1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 2});
+	quadCloud.push_back({0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 3});
+	auto result4 = reconstructor.PointCloudToMesh(quadCloud);
+	// Quad should produce at least the input vertices and some triangles
+	REQUIRE(result4 != nullptr);
+	REQUIRE(result4->vertices.size() >= 4);
+	REQUIRE(result4->triangles.size() >= 2);  // Verify mesh was actually created
+	
+	return true;
+}
+
+// Test: DepthMap allocation and bounds checking
+bool TestDepthMapBounds() {
+	DepthMap dm;
+	
+	// Allocate should set dimensions
+	dm.Allocate(10, 20);
+	REQUIRE(dm.width == 10);
+	REQUIRE(dm.height == 20);
+	REQUIRE(dm.depth.size() == 200);
+	
+	// Valid access
+	float* validPtr = dm.GetDepthPtr(5, 10);
+	REQUIRE(validPtr != nullptr);
+	*validPtr = 42.0f;
+	REQUIRE(dm.depth[10 * 10 + 5] == 42.0f);
+	
+	// Invalid access - out of bounds x
+	const float* invalidX = dm.GetDepthPtr(15, 5);
+	REQUIRE(invalidX == nullptr);
+	
+	// Invalid access - out of bounds y
+	const float* invalidY = dm.GetDepthPtr(5, 25);
+	REQUIRE(invalidY == nullptr);
+	
+	// Invalid access - negative coordinates
+	const float* invalidNeg = dm.GetDepthPtr(-1, 5);
+	REQUIRE(invalidNeg == nullptr);
+	
+	return true;
+}
+
+// Test: MeshUtils::ApplyTransform
+bool TestMeshTransform() {
+	UniversalMesh mesh;
+	mesh.vertices.push_back({1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0});
+	mesh.vertices.push_back({2, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1});
+	mesh.vertices.push_back({1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 2});
+	
+	float transform[16] = {
+		1, 0, 0, 0,  // column 0
+		0, 1, 0, 0,  // column 1
+		0, 0, 1, 0,  // column 2
+		10, 0, 0, 1  // column 3 (translation)
+	};
+	
+	// Apply translation
+	MeshUtils::ApplyTransform(mesh, transform);
+	
+	// Vertices should be translated by (10, 0, 0)
+	REQUIRE(mesh.vertices[0].x == 11.0f);
+	REQUIRE(mesh.vertices[1].x == 12.0f);
+	REQUIRE(mesh.vertices[2].x == 11.0f);
+	
+	return true;
+}
+
+// Test: MeshUtils::MirrorMesh
+bool TestMeshMirror() {
+	UniversalMesh mesh;
+	mesh.vertices.push_back({1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0});
+	mesh.vertices.push_back({2, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1});
+	mesh.vertices.push_back({1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 2});
+	mesh.triangles.push_back({0, 1, 2, 0});
+	
+	// Mirror along X axis (x -> -x)
+	MeshUtils::MirrorMesh(mesh, 0, 0.0f);
+	
+	// Original x=1 should become x=-1, x=2 should become x=-2
+	REQUIRE(std::abs(mesh.vertices[0].x + 1.0f) < 0.001f);
+	REQUIRE(std::abs(mesh.vertices[1].x + 2.0f) < 0.001f);
+	REQUIRE(std::abs(mesh.vertices[2].x + 1.0f) < 0.001f);
+	
+	// Y and Z should remain unchanged
+	REQUIRE(mesh.vertices[0].y == 0.0f);
+	REQUIRE(mesh.vertices[0].z == 0.0f);
+	
+	return true;
+}
+
+// Test: Empty mesh bounds computation
+bool TestEmptyMeshBounds() {
+	UniversalMesh mesh;
+	mesh.ComputeBounds();
+	
+	// Empty mesh should have default bounds (zeros)
+	REQUIRE(mesh.boundsMin[0] == 0.0f);
+	REQUIRE(mesh.boundsMin[1] == 0.0f);
+	REQUIRE(mesh.boundsMin[2] == 0.0f);
+	REQUIRE(mesh.boundsMax[0] == 0.0f);
+	REQUIRE(mesh.boundsMax[1] == 0.0f);
+	REQUIRE(mesh.boundsMax[2] == 0.0f);
+	
+	return true;
+}
+
+// Test: UniversalModel AddMesh and GetMesh
+bool TestUniversalModelAccess() {
+	UniversalModel model;
+	REQUIRE(model.GetMeshCount() == 0);
+	
+	UniversalMesh mesh1;
+	mesh1.name = "Mesh1";
+	mesh1.vertices.push_back({0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0});
+	
+	UniversalMesh mesh2;
+	mesh2.name = "Mesh2";
+	mesh2.vertices.push_back({0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1});
+	
+	model.AddMesh(mesh1);
+	REQUIRE(model.GetMeshCount() == 1);
+	
+	model.AddMesh(mesh2);
+	REQUIRE(model.GetMeshCount() == 2);
+	
+	// Access by index
+	UniversalMesh* retrieved1 = model.GetMesh(0);
+	REQUIRE(retrieved1 != nullptr);
+	REQUIRE(retrieved1->name == "Mesh1");
+	
+	UniversalMesh* retrieved2 = model.GetMesh(1);
+	REQUIRE(retrieved2 != nullptr);
+	REQUIRE(retrieved2->name == "Mesh2");
+	
+	// Access by name
+	UniversalMesh* namedMesh = model.GetMesh("Mesh1");
+	REQUIRE(namedMesh != nullptr);
+	REQUIRE(namedMesh->name == "Mesh1");
+	
+	// Out of bounds access
+	UniversalMesh* invalid = model.GetMesh(99);
+	REQUIRE(invalid == nullptr);
+	
+	return true;
+}
+
 // Main test runner
 int main() {
     std::cout << "=== Universal Model Unit Tests ===" << std::endl << std::endl;
@@ -342,6 +517,12 @@ int main() {
     runTest("DepthMap Access", TestDepthMapAccess);
     runTest("ImageData Validation", TestImageDataValidation);
     runTest("EdgeAwareUpsample", TestEdgeAwareUpsample);
+    runTest("PointCloudToMesh Edge Cases", TestPointCloudToMeshEdgeCases);
+    runTest("DepthMap Bounds", TestDepthMapBounds);
+    runTest("Mesh Transform", TestMeshTransform);
+    runTest("Mesh Mirror", TestMeshMirror);
+    runTest("Empty Mesh Bounds", TestEmptyMeshBounds);
+    runTest("UniversalModel Access", TestUniversalModelAccess);
     
     std::cout << std::endl << "=== Results: " << testsPassed << " passed, " << testsFailed << " failed ===" << std::endl;
     
