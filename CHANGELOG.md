@@ -41,7 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 - **ParseCameraPoseJSON comment**: Updated misleading comment in catch block from \"Fall back to simple parsing for non-JSON files\" to accurate description \"JSON parsing failed - LoadCameraPoses will use identity matrix as fallback\"
 
-## [0.1.0] - 2024-XX-XX
+## [0.1.0] - 2025-01-01
 
 ### Added
 - Initial release as PolyForge (forked from BodySlide-and-Outfit-Studio)
