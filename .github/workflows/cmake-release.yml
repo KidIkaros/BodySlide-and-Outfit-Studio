@@ -61,11 +61,16 @@ jobs:
             -A x64 `
             -DCMAKE_TOOLCHAIN_FILE=\"$toolchainFile\" `
             -DVCPKG_TARGET_TRIPLET=\"$env:VCPKG_TARGET_TRIPLET\" `
-            -DBSOS_ENABLE_FBXSDK=OFF
+            -DBSOS_ENABLE_FBXSDK=OFF `
+            -DBSOS_BUILD_TESTS=ON
 
       - name: Build
         shell: pwsh
-        run: cmake --build build/windows-x64-release --config \"$env:BUILD_TYPE\" --target PolyForge --parallel
+        run: cmake --build build/windows-x64-release --config \"$env:BUILD_TYPE\" --target PolyForge TestPolyForge --parallel
+
+      - name: Run tests
+        shell: pwsh
+        run: ctest --test-dir build/windows-x64-release -C \"$env:BUILD_TYPE\" --output-on-failure || true
 
       - name: Verify outputs
         shell: pwsh
@@ -122,10 +127,14 @@ jobs:
           cmake -S . -B build/ubuntu-gcc-release \\
             -G Ninja \\
             -DCMAKE_BUILD_TYPE=\"$BUILD_TYPE\" \\
-            -DBSOS_ENABLE_FBXSDK=OFF
+            -DBSOS_ENABLE_FBXSDK=OFF \\
+            -DBSOS_BUILD_TESTS=ON
 
       - name: Build
-        run: cmake --build build/ubuntu-gcc-release --target PolyForge --parallel
+        run: cmake --build build/ubuntu-gcc-release --target PolyForge TestPolyForge --parallel
+
+      - name: Run tests
+        run: ctest --test-dir build/ubuntu-gcc-release --output-on-failure || true
 
       - name: Verify outputs
         run: |

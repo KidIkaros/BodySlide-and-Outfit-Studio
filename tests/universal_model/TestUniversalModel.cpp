@@ -98,14 +98,11 @@ bool TestMeshApplyWeld() {
     std::map<uint32_t, std::vector<uint32_t>> weldMap;
     weldMap[0] = {1, 2};  // vertex 0 absorbs 1 and 2
     
-    size_t vertexCountBefore = mesh.vertices.size();
-    size_t triCountBefore = mesh.triangles.size();
-    
     mesh.ApplyWeld(weldMap);
     
     // After welding, should have 2 vertices (0 kept, 3 kept; 1,2 merged into 0)
     REQUIRE(mesh.vertices.size() == 2);
-    REQUIRE(mesh.triangles.size() == triCountBefore);
+    REQUIRE(mesh.triangles.size() == 2);
     
     // Verify all triangle vertex indices are valid (within bounds)
     for (const auto& tri : mesh.triangles) {
@@ -204,13 +201,11 @@ bool TestSkeletonCreation() {
     // Should have a root bone
     REQUIRE(!skeleton.rootBoneName.empty());
     
-    // Verify skeleton has some standard bones (Root, Pelvis, Spine, Head)
-    bool hasRoot = false, hasPelvis = false, hasSpine = false, hasHead = false;
+    // Verify skeleton has some standard bones (Root, Pelvis)
+    bool hasRoot = false, hasPelvis = false;
     for (const auto& bone : skeleton.bones) {
         if (bone.name == u8"Root") hasRoot = true;
         if (bone.name == u8"Pelvis") hasPelvis = true;
-        if (bone.name == u8"Spine") hasSpine = true;
-        if (bone.name == u8"Head") hasHead = true;
     }
     REQUIRE(hasRoot);  // Must have Root bone
     REQUIRE(hasPelvis || skeleton.bones.size() >= 5);  // Should have pelvis or substantial skeleton

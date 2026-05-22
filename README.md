@@ -1,9 +1,10 @@
 PolyForge
 =========
 
-A powerful mesh processing and 3D modeling toolkit for creating, converting, and customizing 3D models and outfits.
+[![CI](https://github.com/KidIkaros/PolyForge/workflows/CMake%20Release/badge.svg)](https://github.com/KidIkaros/PolyForge/actions)
+[![License](https://img.shields.io/github/license/KidIkaros/PolyForge)](LICENSE)
 
-**Created by:** KidIkaros
+A powerful mesh processing and 3D modeling toolkit for creating, converting, and customizing 3D models and outfits.
 
 **Core Features:**
 - Edge-aware depth map upsampling for high-quality mesh reconstruction
@@ -18,19 +19,15 @@ A powerful mesh processing and 3D modeling toolkit for creating, converting, and
 - ParseCameraPoseJSON: Robust JSON parsing for camera pose data
 - Comprehensive test coverage for core functionality
 
-**Libraries used:**
-- OpenGL
-- OpenGL Image (GLI)
-- Simple OpenGL Image Library 2 (SOIL2)
-- TinyXML-2
-- FSEngine (BSA/BA2 library)
-- Autodesk FBX SDK
-- nifly (NIF library)
-- wxWidgets
-- nlohmann/json
-
 **Build Status:**
-- Ubuntu GCC Release: Passing
-- Windows x64 Release: Passing
+| Platform | Status |
+|----------|--------|
+| Ubuntu GCC Release | Passing |
+| Windows x64 Release | Passing |
+
+**Libraries used:**
+- OpenGL, OpenGL Image (GLI), Simple OpenGL Image Library 2 (SOIL2)
+- TinyXML-2, FSEngine (BSA/BA2 library), Autodesk FBX SDK
+- nifly (NIF library), wxWidgets, nlohmann/json, GLM
 
 https://github.com/KidIkaros/PolyForge

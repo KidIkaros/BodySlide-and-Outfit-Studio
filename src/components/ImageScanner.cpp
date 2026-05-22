@@ -763,12 +763,7 @@ std::unique_ptr<UniversalMesh> MeshReconstructor::PointCloudToMesh(
 	}
 	
 	// For organized point clouds (from depth maps), we can triangulate directly
-	// Check if points have grid structure
-	bool isGrid = true;
-	for (size_t i = 1; i < pointCloud.size(); ++i) {
-		// Simple heuristic: if points are in a grid, neighbors should be nearby
-		// This works for depth map outputs
-	}
+	// Grid detection could be used for optimization but is not currently needed
 	
 	// As a fallback, create vertices and use marching cubes or similar
 	// For now, just create vertices and simple connectivity
@@ -1095,7 +1090,7 @@ void MeshReconstructor::FillHoles(UniversalMesh& mesh) {
 				}
 			}
 			
-			if (!foundNext || hole.size() > config.maxHoleSize) break;  // Configurable safety limit
+			if (!foundNext || hole.size() > static_cast<size_t>(config.maxHoleSize)) break;  // Configurable safety limit
 			if (current == edge.first) break;  // Loop closed
 		}
 		
