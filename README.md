@@ -1,25 +1,36 @@
-BodySlide-and-Outfit-Studio
-===========================
+PolyForge
+=========
 
-BodySlide and Outfit Studio, a tool to convert, create, and customize outfits and bodies for The Elder Scrolls and Fallout.
+A powerful mesh processing and 3D modeling toolkit for creating, converting, and customizing 3D models and outfits.
 
-**Created by and/or with the help of:**
-* Caliente
-* ousnius
-* jonwd7 for NIF and general help
-* degenerated1123 for help with shaders
-* NifTools team
+**Created by:** KidIkaros
+
+**Core Features:**
+- Edge-aware depth map upsampling for high-quality mesh reconstruction
+- Automated mesh optimization with configurable hole-filling
+- Camera pose parsing with scientific notation support
+- Universal model format handling with validation
+- Skeleton creation and bone structure verification
+
+**Technical Highlights:**
+- EdgeAwareUpsample: Preserves sharp depth discontinuities during upsampling
+- FillHoles: Configurable hole-filling with adaptive size limits
+- ParseCameraPoseJSON: Robust JSON parsing for camera pose data
+- Comprehensive test coverage for core functionality
 
 **Libraries used:**
-* OpenGL
-* OpenGL Image (GLI)
-* Simple OpenGL Image Library 2 (SOIL2)
-* TinyXML-2
-* FSEngine (BSA/BA2 library)
-* Autodesk FBX SDK
-* half - IEEE 754-based half-precision floating point library
-* Miniball
-* LZ4(F)
-* wxWidgets
+- OpenGL
+- OpenGL Image (GLI)
+- Simple OpenGL Image Library 2 (SOIL2)
+- TinyXML-2
+- FSEngine (BSA/BA2 library)
+- Autodesk FBX SDK
+- nifly (NIF library)
+- wxWidgets
+- nlohmann/json
 
-https://github.com/ousnius/BodySlide-and-Outfit-Studio/wiki
+**Build Status:**
+- Ubuntu GCC Release: Passing
+- Windows x64 Release: Passing
+
+https://github.com/KidIkaros/PolyForge
