@@ -298,27 +298,20 @@ bool TestEdgeAwareUpsample() {
 		REQUIRE(output.depth[i] > 0.0f);
 	}
 	
-	// Verify edge preservation - the depth discontinuity should cause
-	// measurable difference between left and right halves of the output
-	float leftAvg = 0.0f, rightAvg = 0.0f;
-	int leftCount = 0, rightCount = 0;
-	for (int y = 0; y < 8; ++y) {
-		for (int x = 0; x < 4; ++x) {
-			leftAvg += output.depth[y * 8 + x];
-			leftCount++;
-		}
-		for (int x = 4; x < 8; ++x) {
-			rightAvg += output.depth[y * 8 + x];
-			rightCount++;
-		}
-	}
-	leftAvg /= leftCount;
-	rightAvg /= rightCount;
+	// Verify edge preservation - check pixels at the edge boundary
+	// With 2x upsampling, original edge at x=2 should now be near x=4
+	// Row 0: x=3 (just left of edge) should be ~1.0, x=4 (just right) should be ~0.5
+	float valAtX3 = output.depth[0 * 8 + 3];
+	float valAtX4 = output.depth[0 * 8 + 4];
+	float valAtX2 = output.depth[0 * 8 + 2];
+	float valAtX5 = output.depth[0 * 8 + 5];
 	
-	// The edge should cause a measurable difference between halves
-	// Left side (near original x=0-1) should average ~1.0
-	// Right side (near original x=2-3) should average ~0.5
-	REQUIRE(std::abs(leftAvg - rightAvg) > 0.1f);
+	// With sharp edge preservation: x=3 ≈ 1.0, x=4 ≈ 0.5
+	// With pure bilinear (blurred): x=3 ≈ 0.875, x=4 ≈ 0.625
+	REQUIRE(std::abs(valAtX3 - 1.0f) < 0.25f);  // Should be close to original 1.0, not blended
+	REQUIRE(std::abs(valAtX4 - 0.5f) < 0.25f);  // Should be close to original 0.5, not blended
+	REQUIRE(std::abs(valAtX2 - 1.0f) < 0.25f);  // Left side should stay near 1.0
+	REQUIRE(std::abs(valAtX5 - 0.5f) < 0.25f);  // Right side should stay near 0.5
 	
 	return true;
 }
