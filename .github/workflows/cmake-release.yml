@@ -93,7 +93,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      BUILD_TYPE: Release
+      BUILD_TYPE: Coverage
       CC: gcc
       CXX: g++
 
@@ -117,7 +117,8 @@ jobs:
             libglu1-mesa-dev \\
             libwxgtk3.2-dev \\
             ninja-build \\
-            pkg-config
+            pkg-config \\
+            lcov
 
           wx-config --version
           wx-config --libs gl
@@ -128,13 +129,28 @@ jobs:
             -G Ninja \\
             -DCMAKE_BUILD_TYPE=\"$BUILD_TYPE\" \\
             -DBSOS_ENABLE_FBXSDK=OFF \\
-            -DBSOS_BUILD_TESTS=ON
+            -DBSOS_BUILD_TESTS=ON \\
+            -DCODE_COVERAGE=ON
 
       - name: Build
         run: cmake --build build/ubuntu-gcc-release --target PolyForge TestUniversalModel --parallel
 
       - name: Run tests
         run: ctest --test-dir build/ubuntu-gcc-release --output-on-failure
+
+      - name: Generate coverage report
+        run: |
+          lcov --capture --directory build/ubuntu-gcc-release --output-file coverage.info
+          lcov --remove coverage.info '*/tests/*' '*/lib/*' '*/usr/*' --output-file coverage.filtered.info
+          lcov --list coverage.filtered.info
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.filtered.info
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Verify outputs
         run: |
