@@ -48,13 +48,67 @@ Efficient mesh smoothing with:
 ### Ubuntu/Debian
 ```bash
 sudo apt-get install build-essential cmake libwxgtk3.2-dev libglew-dev libgl1-mesa-dev
+git clone https://github.com/KidIkaros/PolyForge.git
+cd PolyForge
 mkdir build && cd build
 cmake ..
 make -j$(nproc)
 ```
 
-### Windows
-Requires Visual Studio 2022+ with vcpkg for dependencies.
+### Windows (Visual Studio 2022+)
+```powershell
+git clone https://github.com/KidIkaros/PolyForge.git
+cd PolyForge
+mkdir build && cd build
+cmake .. -G “Visual Studio 17 2022” -DVCPKG_TARGET_TRIPLET=x64-windows-static
+cmake --build . --config Release
+```
+
+## Usage Examples
+
+### C++ API Usage
+
+```cpp
+#include “components/ImageScanner.h”
+
+// Edge-aware depth map upsampling
+DepthEstimator estimator;
+DepthMap input, output;
+input.Allocate(256, 256);
+// ... populate input.depth with depth values ...
+estimator.EdgeAwareUpsample(input, output, 512, 512);
+
+// Optimize mesh with hole filling
+MeshReconstructor reconstructor;
+MeshReconstructionConfig config;
+config.maxHoleSize = 500;  // Custom hole size limit
+reconstructor.SetConfig(config);
+reconstructor.FillHoles(mesh);
+```
+
+### Camera Pose Parsing
+
+```cpp
+#include “components/ImageScanner.h”
+
+ImageScanner scanner;
+auto poses = scanner.LoadCameraPoses(“camera_poses.json”);
+// Returns vector of 4x4 transformation matrices
+// Falls back to identity matrix if parsing fails
+```
+
+### Universal Model Format Detection
+
+```cpp
+#include “components/UniversalModel.h”
+
+UniversalModel model;
+FormatRegistry registry;
+auto format = registry.DetectFormat(“mesh.nif”);
+if (format) {
+    model.Load(“mesh.nif”, format);
+}
+```
 
 ## Architecture
 
@@ -64,6 +118,14 @@ PolyForge is built around several core components:
 - **MeshReconstructor**: 3D mesh generation from depth maps
 - **UniversalModel**: Cross-format 3D model support
 - **FormatRegistry**: Plugin-based format handler system
+
+## Testing
+
+Run the test suite:
+```bash
+cd build
+ctest --output-on-failure
+```
 
 ## License
 
