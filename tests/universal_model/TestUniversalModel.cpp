@@ -875,6 +875,136 @@ bool TestSubmeshStructure() {
 	return true;
 }
 
+// Test: AnimKeyframe structure
+bool TestAnimKeyframe() {
+	AnimKeyframe keyframe;
+	keyframe.time = 1.5f;
+	keyframe.value[0] = 10.0f;
+	keyframe.value[1] = 20.0f;
+	keyframe.value[2] = 30.0f;
+	keyframe.rotation[0] = 0.1f;  // x
+	keyframe.rotation[1] = 0.2f;  // y
+	keyframe.rotation[2] = 0.3f;  // z
+	keyframe.rotation[3] = 0.9f;  // w (quaternion)
+	
+	REQUIRE(keyframe.time == 1.5f);
+	REQUIRE(keyframe.value[0] == 10.0f);
+	REQUIRE(keyframe.value[1] == 20.0f);
+	REQUIRE(keyframe.value[2] == 30.0f);
+	REQUIRE(keyframe.rotation[0] == 0.1f);
+	REQUIRE(keyframe.rotation[3] == 0.9f);  // w component
+	
+	return true;
+}
+
+// Test: AnimTrack structure
+bool TestAnimTrack() {
+	AnimTrack track;
+	track.boneName = "Root";
+	
+	// Add position keyframes
+	AnimKeyframe posKey1;
+	posKey1.time = 0.0f;
+	posKey1.value[0] = 0.0f; posKey1.value[1] = 0.0f; posKey1.value[2] = 0.0f;
+	track.positionKeys.push_back(posKey1);
+	
+	AnimKeyframe posKey2;
+	posKey2.time = 1.0f;
+	posKey2.value[0] = 10.0f; posKey2.value[1] = 5.0f; posKey2.value[2] = 0.0f;
+	track.positionKeys.push_back(posKey2);
+	
+	// Add rotation keyframes
+	AnimKeyframe rotKey;
+	rotKey.time = 0.0f;
+	rotKey.rotation[0] = 0.0f; rotKey.rotation[1] = 0.0f; rotKey.rotation[2] = 0.0f; rotKey.rotation[3] = 1.0f;
+	track.rotationKeys.push_back(rotKey);
+	
+	REQUIRE(track.boneName == "Root");
+	REQUIRE(track.positionKeys.size() == 2);
+	REQUIRE(track.rotationKeys.size() == 1);
+	REQUIRE(track.scaleKeys.empty());  // No scale keys
+	
+	// Verify keyframe times
+	REQUIRE(track.positionKeys[0].time == 0.0f);
+	REQUIRE(track.positionKeys[1].time == 1.0f);
+	REQUIRE(track.positionKeys[1].value[0] == 10.0f);
+	
+	return true;
+}
+
+// Test: UniversalAnimation structure
+bool TestUniversalAnimation() {
+	UniversalAnimation anim;
+	anim.name = "WalkCycle";
+	anim.duration = 2.0f;
+	anim.framesPerSecond = 30.0f;
+	
+	// Add a track for a bone
+	AnimTrack track;
+	track.boneName = "Pelvis";
+	AnimKeyframe key;
+	key.time = 0.0f;
+	key.value[0] = 0.0f; key.value[1] = 50.0f; key.value[2] = 0.0f;
+	track.positionKeys.push_back(key);
+	anim.tracks.push_back(track);
+	
+	// Add metadata
+	anim.metadata["author"] = "TestUser";
+	anim.metadata["version"] = "1.0";
+	
+	REQUIRE(anim.name == "WalkCycle");
+	REQUIRE(anim.duration == 2.0f);
+	REQUIRE(anim.framesPerSecond == 30.0f);
+	REQUIRE(anim.tracks.size() == 1);
+	REQUIRE(anim.tracks[0].boneName == "Pelvis");
+	REQUIRE(anim.metadata["author"] == "TestUser");
+	REQUIRE(anim.metadata["version"] == "1.0");
+	
+	return true;
+}
+
+// Test: Bone structure
+bool TestBoneStructure() {
+	Bone bone;
+	bone.name = "TestBone";
+	bone.parentName = "ParentBone";
+	bone.isStandardBone = true;
+	
+	// Set identity transform
+	for (int i = 0; i < 16; ++i) {
+		bone.transform[i] = (i % 5 == 0) ? 1.0f : 0.0f;  // Diagonal = identity
+		bone.localTransform[i] = (i % 5 == 0) ? 1.0f : 0.0f;
+	}
+	
+	REQUIRE(bone.name == "TestBone");
+	REQUIRE(bone.parentName == "ParentBone");
+	REQUIRE(bone.isStandardBone == true);
+	REQUIRE(bone.transform[0] == 1.0f);   // m[0][0]
+	REQUIRE(bone.transform[5] == 1.0f);   // m[1][1]
+	REQUIRE(bone.transform[10] == 1.0f);  // m[2][2]
+	REQUIRE(bone.transform[15] == 1.0f);  // m[3][3]
+	
+	return true;
+}
+
+// Test: VertexSkinData structure
+bool TestVertexSkinData() {
+	VertexSkinData skinData;
+	
+	// Add bone weights
+	skinData.weights.push_back({0, 0.6f});
+	skinData.weights.push_back({1, 0.3f});
+	skinData.weights.push_back({2, 0.1f});
+	
+	REQUIRE(skinData.weights.size() == 3);
+	REQUIRE(skinData.weights[0].boneIndex == 0);
+	REQUIRE(std::abs(skinData.weights[0].weight - 0.6f) < 0.001f);
+	REQUIRE(skinData.weights[2].boneIndex == 2);
+	REQUIRE(std::abs(skinData.weights[2].weight - 0.1f) < 0.001f);
+	
+	return true;
+}
+
 // Main test runner
 int main() {
     std::cout << "=== Universal Model Unit Tests ===" << std::endl << std::endl;
@@ -917,6 +1047,11 @@ int main() {
     runTest("Split By Materials", TestSplitByMaterials);
     runTest("Copy Weights", TestCopyWeights);
     runTest("Submesh Structure", TestSubmeshStructure);
+    runTest("AnimKeyframe Structure", TestAnimKeyframe);
+    runTest("AnimTrack Structure", TestAnimTrack);
+    runTest("UniversalAnimation Structure", TestUniversalAnimation);
+    runTest("Bone Structure", TestBoneStructure);
+    runTest("VertexSkinData Structure", TestVertexSkinData);
     
     std::cout << std::endl << "=== Results: " << testsPassed << " passed, " << testsFailed << " failed ===" << std::endl;
     
