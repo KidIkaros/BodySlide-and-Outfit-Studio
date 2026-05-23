@@ -1005,6 +1005,153 @@ bool TestVertexSkinData() {
 	return true;
 }
 
+// Test: Texture path management
+bool TestTexturePathManagement() {
+	UniversalMesh mesh;
+	
+	// Initially empty
+	REQUIRE(mesh.texturePaths.empty());
+	
+	// Add texture paths
+	mesh.texturePaths.push_back("textures/base_color.dds");
+	mesh.texturePaths.push_back("textures/normal.dds");
+	mesh.texturePaths.push_back("textures/metallic.dds");
+	
+	REQUIRE(mesh.texturePaths.size() == 3);
+	REQUIRE(mesh.texturePaths[0] == "textures/base_color.dds");
+	REQUIRE(mesh.texturePaths[1] == "textures/normal.dds");
+	REQUIRE(mesh.texturePaths[2] == "textures/metallic.dds");
+	
+	// Test path modification
+	mesh.texturePaths[1] = "textures/bump.dds";
+	REQUIRE(mesh.texturePaths[1] == "textures/bump.dds");
+	
+	// Test removal
+	mesh.texturePaths.pop_back();
+	REQUIRE(mesh.texturePaths.size() == 2);
+	
+	return true;
+}
+
+// Test: Mesh metadata
+bool TestMeshMetadata() {
+	UniversalModel model;
+	model.name = "TestModel";
+	model.metadata["author"] = "TestAuthor";
+	model.metadata["version"] = "1.0";
+	model.metadata["format"] = "NIF";
+	
+	REQUIRE(model.name == "TestModel");
+	REQUIRE(model.metadata.size() == 3);
+	REQUIRE(model.metadata["author"] == "TestAuthor");
+	REQUIRE(model.metadata["version"] == "1.0");
+	REQUIRE(model.metadata["format"] == "NIF");
+	
+	return true;
+}
+
+// Test: Empty mesh operations (error handling)
+bool TestEmptyMeshOperations() {
+	UniversalMesh emptyMesh;
+	
+	// ComputeBounds on empty mesh should not crash
+	emptyMesh.ComputeBounds();
+	REQUIRE(emptyMesh.boundsMin[0] == 0.0f);  // Default bounds
+	REQUIRE(emptyMesh.boundsMax[0] == 0.0f);
+	
+	// GetVertexCount on empty mesh
+	REQUIRE(emptyMesh.GetVertexCount() == 0);
+	REQUIRE(emptyMesh.GetTriangleCount() == 0);
+	
+	return true;
+}
+
+// Test: Weld map with empty mesh
+bool TestEmptyMeshWeld() {
+	UniversalMesh emptyMesh;
+	
+	// Create weld map on empty mesh
+	auto weldMap = MeshUtils::CreateWeldMap(emptyMesh, 0.05f);
+	REQUIRE(weldMap.empty());  // Should be empty
+	
+	// Weld on empty mesh should not crash
+	MeshUtils::WeldVertices(emptyMesh, 0.05f);
+	REQUIRE(emptyMesh.vertices.empty());  // Still empty
+	
+	return true;
+}
+
+// Test: Transform on empty mesh
+bool TestEmptyMeshTransform() {
+	UniversalMesh emptyMesh;
+	
+	float identity[16] = {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1};
+	
+	// ApplyTransform on empty mesh should not crash
+	MeshUtils::ApplyTransform(emptyMesh, identity);
+	REQUIRE(emptyMesh.vertices.empty());
+	
+	return true;
+}
+
+// Test: Merge empty mesh with valid mesh
+bool TestMergeWithEmptyMesh() {
+	UniversalMesh emptyMesh;
+	UniversalMesh validMesh;
+	validMesh.name = "Valid";
+	validMesh.vertices.push_back({0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0});
+	validMesh.triangles.push_back({0, 0, 0, 0});  // degenerate but valid
+	
+	std::vector<UniversalMesh*> meshes = {&emptyMesh, &validMesh};
+	auto merged = MeshUtils::MergeMeshes(meshes);
+	
+	// Should have at least the valid mesh's vertices
+	REQUIRE(merged.vertices.size() >= 1);
+	
+	return true;
+}
+
+// Test: Mirror on empty mesh
+bool TestMirrorEmptyMesh() {
+	UniversalMesh emptyMesh;
+	
+	// Mirror on empty mesh should not crash
+	MeshUtils::MirrorMesh(emptyMesh, 0, 0.0f);
+	REQUIRE(emptyMesh.vertices.empty());
+	
+	return true;
+}
+
+// Test: Generate normals on empty mesh
+bool TestNormalGenerationEmptyMesh() {
+	UniversalMesh emptyMesh;
+	
+	// Normal generation should not crash on empty mesh
+	MeshUtils::GenerateSmoothNormals(emptyMesh);
+	REQUIRE(emptyMesh.vertices.empty());
+	
+	return true;
+}
+
+// Test: FormatRegistry with unknown format
+bool TestFormatRegistryUnknown() {
+	FormatRegistry& reg = FormatRegistry::GetInstance();
+	
+	// GetHandler for unknown format should return nullptr
+	IFormatHandler* unknownHandler = reg.GetHandler(FormatType::UNKNOWN);
+	REQUIRE(unknownHandler == nullptr);
+	
+	// GetHandlerForFile with unknown extension
+	IFormatHandler* unknownExt = reg.GetHandlerForFile("file.unknownext");
+	REQUIRE(unknownExt == nullptr);
+	
+	// DetectFormat with unknown extension should return UNKNOWN
+	FormatType unknownType = reg.DetectFormat("file.unknownext");
+	REQUIRE(unknownType == FormatType::UNKNOWN);
+	
+	return true;
+}
+
 // Main test runner
 int main() {
     std::cout << "=== Universal Model Unit Tests ===" << std::endl << std::endl;
