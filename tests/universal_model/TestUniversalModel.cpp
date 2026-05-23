@@ -1316,6 +1316,146 @@ bool TestUniversalModelManyMeshes() {
 	return true;
 }
 
+// Test: GetMesh with invalid access
+bool TestGetMeshInvalidAccess() {
+	UniversalModel model;
+	UniversalMesh mesh;
+	mesh.name = "ValidMesh";
+	mesh.vertices.push_back({0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0});
+	model.AddMesh(mesh);
+	
+	// Access valid mesh
+	UniversalMesh* validByIndex = model.GetMesh(0);
+	REQUIRE(validByIndex != nullptr);
+	REQUIRE(validByIndex->name == "ValidMesh");
+	
+	UniversalMesh* validByName = model.GetMesh("ValidMesh");
+	REQUIRE(validByName != nullptr);
+	REQUIRE(validByName->name == "ValidMesh");
+	
+	// Access by invalid index (negative)
+	UniversalMesh* invalidNegative = model.GetMesh(-1);
+	REQUIRE(invalidNegative == nullptr);
+	
+	// Access by invalid index (beyond range)
+	UniversalMesh* invalidIndex = model.GetMesh(100);
+	REQUIRE(invalidIndex == nullptr);
+	
+	// Access by invalid name (not found)
+	UniversalMesh* invalidName = model.GetMesh("NonExistentMesh");
+	REQUIRE(invalidName == nullptr);
+	
+	return true;
+}
+
+// Test: ApplyWeld result verification
+bool TestApplyWeldVerification() {
+	UniversalMesh mesh;
+	
+	// Create a simple mesh: two triangles where v2 and v3 share same position
+	// Vertices: v0=(0,0,0), v1=(1,0,0), v2=(0.5,1,0), v3=(0.5,1,0) - v2 and v3 at same pos
+	mesh.vertices.push_back({0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0});
+	mesh.vertices.push_back({1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1});
+	mesh.vertices.push_back({0.5f, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 2});  // v2
+	mesh.vertices.push_back({0.5f, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 3});  // v3 - same position as v2
+	
+	// Two triangles: (0,1,2) and (1,3,2)
+	mesh.triangles.push_back({0, 1, 2, 0});
+	mesh.triangles.push_back({1, 3, 2, 0});
+	
+	// Weld vertex 2 and vertex 3 together (they are at same position)
+	std::map<uint32_t, std::vector<uint32_t>> weldMap;
+	weldMap[2] = {3};  // vertex 2 absorbs vertex 3
+	
+	mesh.ApplyWeld(weldMap);
+	
+	// After welding v2 and v3, we should have 3 vertices (0, 1, 2)
+	REQUIRE(mesh.vertices.size() == 3);
+	
+	// The triangles should be updated: original (0,1,2) and (1,3,2)
+	// After weld, vertex 3 becomes vertex 2, so we get (0,1,2) and (1,2,2)
+	// Second triangle becomes degenerate
+	REQUIRE(mesh.triangles.size() == 2);
+	
+	// All triangle indices should be valid (0, 1, or 2)
+	for (const auto& tri : mesh.triangles) {
+		REQUIRE(tri.v1 <= 2);
+		REQUIRE(tri.v2 <= 2);
+		REQUIRE(tri.v3 <= 2);
+	}
+	
+	// At least one triangle should still be valid (non-degenerate)
+	int validTriangles = 0;
+	for (const auto& tri : mesh.triangles) {
+		if (tri.v1 != tri.v2 && tri.v1 != tri.v3 && tri.v2 != tri.v3) {
+			validTriangles++;
+		}
+	}
+	REQUIRE(validTriangles >= 1);
+	
+	return true;
+}
+
+// Test: AnimTrack with populated scaleKeys
+bool TestAnimTrackScaleKeys() {
+	AnimTrack track;
+	track.boneName = " Spine";
+	
+	// Add position keys
+	AnimKeyframe posKey;
+	posKey.time = 0.0f;
+	posKey.value[0] = 0.0f; posKey.value[1] = 0.0f; posKey.value[2] = 0.0f;
+	track.positionKeys.push_back(posKey);
+	
+	AnimKeyframe posKey2;
+	posKey2.time = 1.0f;
+	posKey2.value[0] = 0.0f; posKey2.value[1] = 5.0f; posKey2.value[2] = 0.0f;
+	track.positionKeys.push_back(posKey2);
+	
+	// Add rotation keys
+	AnimKeyframe rotKey;
+	rotKey.time = 0.0f;
+	rotKey.rotation[0] = 0.0f; rotKey.rotation[1] = 0.0f; rotKey.rotation[2] = 0.0f; rotKey.rotation[3] = 1.0f;
+	track.rotationKeys.push_back(rotKey);
+	
+	// Add scale keys (important for smooth animations)
+	AnimKeyframe scaleKey1;
+	scaleKey1.time = 0.0f;
+	scaleKey1.value[0] = 1.0f; scaleKey1.value[1] = 1.0f; scaleKey1.value[2] = 1.0f;  // 100% scale
+	track.scaleKeys.push_back(scaleKey1);
+	
+	AnimKeyframe scaleKey2;
+	scaleKey2.time = 0.5f;
+	scaleKey2.value[0] = 1.1f; scaleKey2.value[1] = 1.1f; scaleKey2.value[2] = 1.1f;  // 110% scale
+	track.scaleKeys.push_back(scaleKey2);
+	
+	AnimKeyframe scaleKey3;
+	scaleKey3.time = 1.0f;
+	scaleKey3.value[0] = 1.0f; scaleKey3.value[1] = 1.0f; scaleKey3.value[2] = 1.0f;  // Back to 100%
+	track.scaleKeys.push_back(scaleKey3);
+	
+	REQUIRE(track.boneName == " Spine");
+	REQUIRE(track.positionKeys.size() == 2);
+	REQUIRE(track.rotationKeys.size() == 1);
+	REQUIRE(track.scaleKeys.size() == 3);
+	
+	// Verify scale key times and values
+	REQUIRE(track.scaleKeys[0].time == 0.0f);
+	REQUIRE(std::abs(track.scaleKeys[0].value[0] - 1.0f) < 0.001f);  // 100% scale
+	REQUIRE(track.scaleKeys[1].time == 0.5f);
+	REQUIRE(std::abs(track.scaleKeys[1].value[0] - 1.1f) < 0.001f);  // 110% scale
+	REQUIRE(track.scaleKeys[2].time == 1.0f);
+	REQUIRE(std::abs(track.scaleKeys[2].value[0] - 1.0f) < 0.001f);  // Back to 100%
+	
+	// Modify scale key value
+	track.scaleKeys[1].value[0] = 1.2f;
+	track.scaleKeys[1].value[1] = 1.2f;
+	track.scaleKeys[1].value[2] = 1.2f;
+	REQUIRE(std::abs(track.scaleKeys[1].value[0] - 1.2f) < 0.001f);
+	
+	return true;
+}
+
 // Test: Texture path management
 bool TestTexturePathManagement() {
 	UniversalMesh mesh;
@@ -1626,6 +1766,9 @@ int main() {
     runTest("FormatRegistry GetHandler Ext", TestFormatRegistryGetHandlerExt);
     runTest("FormatInfo Capabilities", TestFormatInfoCapabilities);
     runTest("FormatHandler Interface", TestFormatHandlerInterface);
+    runTest("GetMesh Invalid Access", TestGetMeshInvalidAccess);
+    runTest("ApplyWeld Verification", TestApplyWeldVerification);
+    runTest("AnimTrack Scale Keys", TestAnimTrackScaleKeys);
     runTest("Large Mesh Merge", TestLargeMeshMerge);
     runTest("Large Mesh Bounds", TestLargeMeshBounds);
     runTest("Large Mesh Transform", TestLargeMeshTransform);
