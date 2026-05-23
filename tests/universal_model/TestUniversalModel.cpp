@@ -687,18 +687,87 @@ bool TestAutoBindSkeleton() {
 	
 	// After binding, vertices should have skin weights (since they're near root bone)
 	bool hasWeights = false;
+	bool hasNormalizedWeights = true;
 	for (const auto& vskin : *mesh.skinData) {
 		if (!vskin.weights.empty()) {
 			hasWeights = true;
+			// Verify weights are normalized (sum to ~1.0)
+			float sum = 0.0f;
+			for (const auto& w : vskin.weights) {
+				sum += w.weight;
+			}
+			if (std::abs(sum - 1.0f) > 0.01f) {
+				hasNormalizedWeights = false;
+			}
+		}
+	}
+	REQUIRE(hasWeights);  // Verify weights were actually assigned
+	REQUIRE(hasNormalizedWeights);  // Verify weights are properly normalized
+	
+	return true;
+}
+
+// Test: MeshUtils::WeldVertices and CreateWeldMap
+bool TestWeldVertices() {
+	UniversalMesh mesh;
+	// Create vertices with some duplicates (within tolerance)
+	mesh.vertices.push_back({0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0});
+	mesh.vertices.push_back({0.01f, 0.01f, 0.01f, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1});  // near duplicate of v0
+	mesh.vertices.push_back({0.02f, 0.02f, 0.02f, 0, 1, 0, 0, 0, 1, 1, 1, 1, 2});  // near duplicate of v0
+	mesh.vertices.push_back({1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 3});  // distinct
+	mesh.vertices.push_back({1.01f, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 4});  // near duplicate of v3
+	
+	mesh.triangles.push_back({0, 1, 2, 0});
+	mesh.triangles.push_back({3, 4, 1, 0});
+	
+	// Create weld map with 0.05 tolerance
+	auto weldMap = MeshUtils::CreateWeldMap(mesh, 0.05f);
+	
+	// Vertices 0, 1, 2 should be in the same weld group (close together)
+	// Vertex 3, 4 should be in another weld group
+	REQUIRE(weldMap.size() >= 2);  // At least 2 weld groups
+	
+	// Check that v0 absorbs v1 and v2 (or similar grouping)
+	bool hasLargeGroup = false;
+	for (const auto& pair : weldMap) {
+		if (pair.second.size() >= 2) {
+			hasLargeGroup = true;
 			break;
 		}
 	}
-	// If no weights assigned, the test still passes but with a warning
-	// This is acceptable since binding depends on bone positions in the skeleton
-	if (!hasWeights) {
-		std::cerr << "Warning: AutoBindSkeleton assigned no weights (bone positions may differ)" << std::endl;
+	REQUIRE(hasLargeGroup);  // Should have at least one group with duplicates
+	
+	// Weld vertices based on the map
+	MeshUtils::WeldVertices(mesh, 0.05f);
+	
+	// After welding, we should have fewer vertices
+	// Original 5 vertices should become ~2 (group of 0,1,2 merged and group of 3,4 merged)
+	REQUIRE(mesh.vertices.size() < 5);
+	
+	// All triangle indices should still be valid
+	for (const auto& tri : mesh.triangles) {
+		REQUIRE(tri.v1 < mesh.vertices.size());
+		REQUIRE(tri.v2 < mesh.vertices.size());
+		REQUIRE(tri.v3 < mesh.vertices.size());
 	}
-	REQUIRE(true);  // Always pass - binding depends on actual skeleton implementation
+	
+	return true;
+}
+
+// Test: CreateWeldMap with zero tolerance (no welding)
+bool TestCreateWeldMapNoWeld() {
+	UniversalMesh mesh;
+	mesh.vertices.push_back({0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0});
+	mesh.vertices.push_back({10, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1});  // far from v0
+	mesh.vertices.push_back({20, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 2});  // far from all
+	
+	mesh.triangles.push_back({0, 1, 2, 0});
+	
+	// With zero tolerance, no vertices should be welded
+	auto weldMap = MeshUtils::CreateWeldMap(mesh, 0.0f);
+	
+	// Each vertex is its own group (no duplicates within zero tolerance)
+	REQUIRE(weldMap.size() == 3);
 	
 	return true;
 }
@@ -740,6 +809,8 @@ int main() {
     runTest("Generate Smooth Normals", TestGenerateSmoothNormals);
     runTest("Generate Tangents", TestGenerateTangents);
     runTest("Auto Bind Skeleton", TestAutoBindSkeleton);
+    runTest("Weld Vertices", TestWeldVertices);
+    runTest("CreateWeldMap No Weld", TestCreateWeldMapNoWeld);
     
     std::cout << std::endl << "=== Results: " << testsPassed << " passed, " << testsFailed << " failed ===" << std::endl;
     
