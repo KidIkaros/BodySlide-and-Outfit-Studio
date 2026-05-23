@@ -1199,6 +1199,15 @@ int main() {
     runTest("UniversalAnimation Structure", TestUniversalAnimation);
     runTest("Bone Structure", TestBoneStructure);
     runTest("VertexSkinData Structure", TestVertexSkinData);
+    runTest("Texture Path Management", TestTexturePathManagement);
+    runTest("Mesh Metadata", TestMeshMetadata);
+    runTest("Empty Mesh Operations", TestEmptyMeshOperations);
+    runTest("Empty Mesh Weld", TestEmptyMeshWeld);
+    runTest("Empty Mesh Transform", TestEmptyMeshTransform);
+    runTest("Merge With Empty Mesh", TestMergeWithEmptyMesh);
+    runTest("Mirror Empty Mesh", TestMirrorEmptyMesh);
+    runTest("Normal Generation Empty Mesh", TestNormalGenerationEmptyMesh);
+    runTest("FormatRegistry Unknown", TestFormatRegistryUnknown);
     
     std::cout << std::endl << "=== Results: " << testsPassed << " passed, " << testsFailed << " failed ===" << std::endl;
     
