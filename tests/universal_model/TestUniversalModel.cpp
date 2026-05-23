@@ -772,6 +772,109 @@ bool TestCreateWeldMapNoWeld() {
 	return true;
 }
 
+// Test: MeshUtils::SplitByMaterials
+bool TestSplitByMaterials() {
+	UniversalMesh mesh;
+	mesh.vertices.push_back({0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0});
+	mesh.vertices.push_back({1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1});
+	mesh.vertices.push_back({0.5f, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 2});
+	mesh.vertices.push_back({2, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 3});
+	mesh.vertices.push_back({3, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 4});
+	mesh.vertices.push_back({2.5f, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 5});
+	
+	// Create triangles with different submesh indices (representing materials)
+	mesh.triangles.push_back({0, 1, 2, 0});  // submesh 0
+	mesh.triangles.push_back({1, 3, 4, 1});  // submesh 1 (different material)
+	mesh.triangles.push_back({3, 4, 5, 1});  // submesh 1
+	
+	// Split mesh by materials/submeshes
+	auto submeshes = MeshUtils::SplitByMaterials(mesh);
+	
+	// Should produce 2 submeshes (one for each material)
+	REQUIRE(submeshes.size() == 2);
+	
+	// Each submesh should have valid vertices and triangles
+	for (const auto& submesh : submeshes) {
+		REQUIRE(submesh.vertices.size() > 0);
+		REQUIRE(submesh.triangles.size() > 0);
+		// All triangle indices should be valid
+		for (const auto& tri : submesh.triangles) {
+			REQUIRE(tri.v1 < submesh.vertices.size());
+			REQUIRE(tri.v2 < submesh.vertices.size());
+			REQUIRE(tri.v3 < submesh.vertices.size());
+		}
+	}
+	
+	return true;
+}
+
+// Test: SkeletonUtils::CopyWeights
+bool TestCopyWeights() {
+	// Create source mesh with skin data
+	UniversalMesh source;
+	source.vertices.push_back({0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0});
+	source.vertices.push_back({1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1});
+	
+	source.skinData.emplace();
+	source.skinData->resize(2);
+	source.skinData->at(0).weights.push_back({0, 0.8f});
+	source.skinData->at(0).weights.push_back({1, 0.2f});
+	source.skinData->at(1).weights.push_back({0, 0.6f});
+	source.skinData->at(1).weights.push_back({1, 0.4f});
+	
+	// Create target mesh with same vertex count
+	UniversalMesh target;
+	target.vertices.push_back({0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 1, 1, 2});  // same position, different z
+	target.vertices.push_back({1, 0, 1, 0, 1, 0, 0, 0, 1, 1, 1, 1, 3});
+	
+	target.skinData.emplace();
+	target.skinData->resize(2);
+	// Initially no weights
+	REQUIRE(target.skinData->at(0).weights.empty());
+	REQUIRE(target.skinData->at(1).weights.empty());
+	
+	// Create vertex mapping (identity mapping - vertex 0->0, vertex 1->1)
+	std::map<uint32_t, uint32_t> vertexMapping;
+	vertexMapping[0] = 0;
+	vertexMapping[1] = 1;
+	
+	// Copy weights from source to target
+	SkeletonUtils::CopyWeights(target, source, vertexMapping);
+	
+	// After copying, target should have weights
+	REQUIRE(!target.skinData->at(0).weights.empty());
+	REQUIRE(!target.skinData->at(1).weights.empty());
+	
+	// Verify weights match source
+	REQUIRE(target.skinData->at(0).weights[0].boneIndex == 0);
+	REQUIRE(std::abs(target.skinData->at(0).weights[0].weight - 0.8f) < 0.001f);
+	REQUIRE(target.skinData->at(1).weights[0].boneIndex == 0);
+	REQUIRE(std::abs(target.skinData->at(1).weights[0].weight - 0.6f) < 0.001f);
+	
+	return true;
+}
+
+// Test: Submesh structure
+bool TestSubmeshStructure() {
+	Submesh submesh;
+	submesh.startIndex = 10;
+	submesh.triangleCount = 5;
+	submesh.materialName = "TestMaterial";
+	submesh.color[0] = 1.0f;
+	submesh.color[1] = 0.5f;
+	submesh.color[2] = 0.25f;
+	submesh.color[3] = 1.0f;
+	submesh.visible = true;
+	
+	REQUIRE(submesh.startIndex == 10);
+	REQUIRE(submesh.triangleCount == 5);
+	REQUIRE(submesh.materialName == "TestMaterial");
+	REQUIRE(submesh.color[0] == 1.0f);
+	REQUIRE(submesh.visible == true);
+	
+	return true;
+}
+
 // Main test runner
 int main() {
     std::cout << "=== Universal Model Unit Tests ===" << std::endl << std::endl;
@@ -811,6 +914,9 @@ int main() {
     runTest("Auto Bind Skeleton", TestAutoBindSkeleton);
     runTest("Weld Vertices", TestWeldVertices);
     runTest("CreateWeldMap No Weld", TestCreateWeldMapNoWeld);
+    runTest("Split By Materials", TestSplitByMaterials);
+    runTest("Copy Weights", TestCopyWeights);
+    runTest("Submesh Structure", TestSubmeshStructure);
     
     std::cout << std::endl << "=== Results: " << testsPassed << " passed, " << testsFailed << " failed ===" << std::endl;
     
