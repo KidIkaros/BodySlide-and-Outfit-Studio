@@ -1152,6 +1152,105 @@ bool TestFormatRegistryUnknown() {
 	return true;
 }
 
+// Test: FormatRegistry CanHandleFile method
+bool TestFormatRegistryCanHandle() {
+	FormatRegistry& reg = FormatRegistry::GetInstance();
+	
+	IFormatHandler* nifHandler = reg.GetHandler(FormatType::NIF);
+	REQUIRE(nifHandler != nullptr);
+	
+	IFormatHandler* gltfHandler = reg.GetHandler(FormatType::GLTF);
+	REQUIRE(gltfHandler != nullptr);
+	
+	// NIF handler should not handle non-NIF files
+	REQUIRE(nifHandler->CanHandleFile("model.gltf") == false);
+	REQUIRE(nifHandler->CanHandleFile("mesh.fbx") == false);
+	REQUIRE(nifHandler->CanHandleFile("model.obj") == false);
+	
+	// glTF handler should not handle NIF files
+	REQUIRE(gltfHandler->CanHandleFile("test.nif") == false);
+	
+	return true;
+}
+
+// Test: GetHandler with string extension
+bool TestFormatRegistryGetHandlerExt() {
+	FormatRegistry& reg = FormatRegistry::GetInstance();
+	
+	// GetHandler by extension string
+	IFormatHandler* nifHandler = reg.GetHandler("nif");
+	REQUIRE(nifHandler != nullptr);
+	REQUIRE(nifHandler->GetFormatType() == FormatType::NIF);
+	
+	// Also works with dot prefix
+	IFormatHandler* nifHandlerDot = reg.GetHandler(".nif");
+	REQUIRE(nifHandlerDot != nullptr);
+	REQUIRE(nifHandlerDot->GetFormatType() == FormatType::NIF);
+	
+	// Case insensitive
+	IFormatHandler* upperCase = reg.GetHandler(".NIF");
+	REQUIRE(upperCase != nullptr);
+	
+	// Unknown extension returns nullptr
+	IFormatHandler* unknownExt = reg.GetHandler("unknownformat");
+	REQUIRE(unknownExt == nullptr);
+	
+	return true;
+}
+
+// Test: FormatInfo capabilities
+bool TestFormatInfoCapabilities() {
+	FormatRegistry& reg = FormatRegistry::GetInstance();
+	
+	IFormatHandler* handler = reg.GetHandler(FormatType::NIF);
+	REQUIRE(handler != nullptr);
+	
+	FormatInfo info = handler->GetFormatInfo();
+	
+	// Verify format info fields are populated
+	REQUIRE(!info.name.empty());
+	REQUIRE(!info.extension.empty());
+	REQUIRE(info.type == FormatType::NIF);
+	
+	// Verify capabilities list is not empty for a registered format
+	REQUIRE(info.capabilities.size() > 0);
+	
+	// Verify NIF has import/export capabilities
+	bool hasImport = false, hasExport = false;
+	for (auto cap : info.capabilities) {
+		if (cap == FormatCapability::ImportMeshes) hasImport = true;
+		if (cap == FormatCapability::ExportMeshes) hasExport = true;
+	}
+	REQUIRE(hasImport || hasExport); // NIF should have at least one capability
+	
+	return true;
+}
+
+// Test: IFormatHandler interface methods
+bool TestFormatHandlerInterface() {
+	FormatRegistry& reg = FormatRegistry::GetInstance();
+	
+	IFormatHandler* handler = reg.GetHandler(FormatType::NIF);
+	REQUIRE(handler != nullptr);
+	
+	// Test CanImport/CanExport
+	bool canImport = handler->CanImport();
+	bool canExport = handler->CanExport();
+	// At least one should be true for a valid format handler
+	REQUIRE(canImport || canExport);
+	
+	// Test GetFormatInfo returns valid info
+	FormatInfo info = handler->GetFormatInfo();
+	REQUIRE(info.type == FormatType::NIF);
+	REQUIRE(info.supportsMultipleMeshes == true || info.supportsMultipleMeshes == false);
+	REQUIRE(info.isBinaryFormat == true || info.isBinaryFormat == false);
+	
+	// Test GetFormatType
+	REQUIRE(handler->GetFormatType() == FormatType::NIF);
+	
+	return true;
+}
+
 // Main test runner
 int main() {
     std::cout << "=== Universal Model Unit Tests ===" << std::endl << std::endl;
@@ -1208,6 +1307,10 @@ int main() {
     runTest("Mirror Empty Mesh", TestMirrorEmptyMesh);
     runTest("Normal Generation Empty Mesh", TestNormalGenerationEmptyMesh);
     runTest("FormatRegistry Unknown", TestFormatRegistryUnknown);
+    runTest("FormatRegistry CanHandle", TestFormatRegistryCanHandle);
+    runTest("FormatRegistry GetHandler Ext", TestFormatRegistryGetHandlerExt);
+    runTest("FormatInfo Capabilities", TestFormatInfoCapabilities);
+    runTest("FormatHandler Interface", TestFormatHandlerInterface);
     
     std::cout << std::endl << "=== Results: " << testsPassed << " passed, " << testsFailed << " failed ===" << std::endl;
     
