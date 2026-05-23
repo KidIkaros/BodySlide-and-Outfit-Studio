@@ -1131,6 +1131,191 @@ bool TestVertexIdUsage() {
 	return true;
 }
 
+// Test: Large mesh merge stress test
+bool TestLargeMeshMerge() {
+	// Create multiple meshes and merge them
+	const int numMeshes = 10;
+	const int vertsPerMesh = 100;
+	std::vector<UniversalMesh*> meshes;
+	
+	for (int m = 0; m < numMeshes; ++m) {
+		UniversalMesh* mesh = new UniversalMesh();
+		mesh->name = "Mesh" + std::to_string(m);
+		
+		// Add vertices with positions based on mesh index
+		for (int v = 0; v < vertsPerMesh; ++v) {
+			float x = float(m * vertsPerMesh + v);
+			mesh->vertices.push_back({x, float(v), float(v % 10), 
+				0, 1, 0, float(v % 100) / 100.0f, float(v % 100) / 100.0f,
+				1, 1, 1, 1, uint32_t(m * vertsPerMesh + v)});
+		}
+		
+		// Add triangles (two triangles per quad) - ensure indices stay in bounds
+		for (int v = 0; v < vertsPerMesh - 2; v += 2) {
+			mesh->triangles.push_back({uint32_t(v), uint32_t(v + 1), uint32_t(v + 2), uint32_t(m)});
+			if (v + 3 < vertsPerMesh) {
+				mesh->triangles.push_back({uint32_t(v + 1), uint32_t(v + 3), uint32_t(v + 2), uint32_t(m)});
+			}
+		}
+		
+		meshes.push_back(mesh);
+	}
+	
+	// Merge all meshes
+	UniversalMesh merged = MeshUtils::MergeMeshes(meshes);
+	
+	// Should have combined vertices (some overlap due to triangle structure)
+	REQUIRE(merged.vertices.size() > 0);
+	REQUIRE(merged.triangles.size() > 0);
+	
+	// Verify all triangle indices are valid
+	for (const auto& tri : merged.triangles) {
+		REQUIRE(tri.v1 < merged.vertices.size());
+		REQUIRE(tri.v2 < merged.vertices.size());
+		REQUIRE(tri.v3 < merged.vertices.size());
+	}
+	
+	// Cleanup
+	for (auto mesh : meshes) {
+		delete mesh;
+	}
+	
+	return true;
+}
+
+// Test: Large mesh bounds computation
+bool TestLargeMeshBounds() {
+	UniversalMesh mesh;
+	const int numVerts = 1000;
+	
+	// Create a sphere-like distribution of vertices
+	for (int i = 0; i < numVerts; ++i) {
+		float theta = float(i) * 0.1f;
+		float phi = float(i * 7) * 0.1f;
+		float x = std::sin(theta) * std::cos(phi) * 100.0f;
+		float y = std::sin(theta) * std::sin(phi) * 100.0f;
+		float z = std::cos(theta) * 100.0f;
+		
+		mesh.vertices.push_back({x, y, z, 0, 1, 0, 0, 0, 1, 1, 1, 1, uint32_t(i)});
+	}
+	
+	mesh.ComputeBounds();
+	
+	// Bounds should encapsulate all vertices (roughly within sphere of radius 100)
+	REQUIRE(mesh.boundsMin[0] < 0);  // Negative x (sphere extends to -100)
+	REQUIRE(mesh.boundsMin[1] < 0);  // Negative y
+	REQUIRE(mesh.boundsMin[2] < 0);  // Negative z
+	REQUIRE(mesh.boundsMax[0] > 0);  // Positive x
+	REQUIRE(mesh.boundsMax[1] > 0);  // Positive y
+	REQUIRE(mesh.boundsMax[2] > 0);  // Positive z
+	
+	// Sphere radius is 100, so bounds should be roughly +/- 100
+	REQUIRE(mesh.boundsMin[0] > -110.0f);
+	REQUIRE(mesh.boundsMin[1] > -110.0f);
+	REQUIRE(mesh.boundsMin[2] > -110.0f);
+	REQUIRE(mesh.boundsMax[0] < 110.0f);
+	REQUIRE(mesh.boundsMax[1] < 110.0f);
+	REQUIRE(mesh.boundsMax[2] < 110.0f);
+	
+	// Verify radius is calculated
+	REQUIRE(mesh.boundsRadius > 0.0f);
+	
+	return true;
+}
+
+// Test: Large mesh transform stress test
+bool TestLargeMeshTransform() {
+	UniversalMesh mesh;
+	const int numVerts = 500;
+	
+	// Create a grid of vertices
+	for (int i = 0; i < numVerts; ++i) {
+		float x = float(i % 50);
+		float y = float(i / 50);
+		float z = 0.0f;
+		mesh.vertices.push_back({x, y, z, 0, 1, 0, 0, 0, 1, 1, 1, 1, uint32_t(i)});
+	}
+	
+	// Create rotation matrix (45 degrees around Z axis)
+	float angle = 3.14159f / 4.0f;  // 45 degrees
+	float c = std::cos(angle);
+	float s = std::sin(angle);
+	float transform[16] = {
+		c, s, 0, 0,   // column 0
+		-s, c, 0, 0,  // column 1
+		0, 0, 1, 0,   // column 2
+		0, 0, 0, 1    // column 3
+	};
+	
+	MeshUtils::ApplyTransform(mesh, transform);
+	
+	// Verify all vertices were transformed
+	for (const auto& v : mesh.vertices) {
+		// Original x,y should be rotated by 45 degrees
+		// For a point at (10, 0), rotated 45 degrees should be at (7.07, 7.07)
+		REQUIRE(v.x != 0.0f || v.y != 0.0f);  // At least some should change
+	}
+	
+	return true;
+}
+
+// Test: Large mesh mirror stress test
+bool TestLargeMeshMirror() {
+	UniversalMesh mesh;
+	const int numVerts = 200;
+	
+	// Create vertices in a line pattern
+	for (int i = 0; i < numVerts; ++i) {
+		float x = float(i - numVerts/2);  // Center around 0
+		float y = float(i % 10);
+		mesh.vertices.push_back({x, y, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, uint32_t(i)});
+	}
+	
+	// Mirror around Y axis
+	MeshUtils::MirrorMesh(mesh, 0, 0.0f);  // Axis 0 = X
+	
+	// After mirroring, positive X should become negative
+	for (const auto& v : mesh.vertices) {
+		if (v.x > 0.001f) {
+			// Found positive X - verify it was mirrored to negative
+			REQUIRE(v.x < 0);  // Should be negative after mirror
+			break;
+		}
+	}
+	
+	return true;
+}
+
+// Test: UniversalModel with many meshes
+bool TestUniversalModelManyMeshes() {
+	UniversalModel model;
+	const int numMeshes = 50;
+	
+	// Add many meshes
+	for (int m = 0; m < numMeshes; ++m) {
+		UniversalMesh mesh;
+		mesh.name = "Mesh" + std::to_string(m);
+		mesh.vertices.push_back({float(m), 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0});
+		model.AddMesh(mesh);
+	}
+	
+	REQUIRE(model.GetMeshCount() == numMeshes);
+	
+	// Access all meshes
+	for (int i = 0; i < numMeshes; ++i) {
+		UniversalMesh* mesh = model.GetMesh(i);
+		REQUIRE(mesh != nullptr);
+		REQUIRE(mesh->name == "Mesh" + std::to_string(i));
+	}
+	
+	// Access by name
+	UniversalMesh* namedMesh = model.GetMesh("Mesh25");
+	REQUIRE(namedMesh != nullptr);
+	REQUIRE(namedMesh->GetVertexCount() == 1);
+	
+	return true;
+}
+
 // Test: Texture path management
 bool TestTexturePathManagement() {
 	UniversalMesh mesh;
@@ -1441,6 +1626,11 @@ int main() {
     runTest("FormatRegistry GetHandler Ext", TestFormatRegistryGetHandlerExt);
     runTest("FormatInfo Capabilities", TestFormatInfoCapabilities);
     runTest("FormatHandler Interface", TestFormatHandlerInterface);
+    runTest("Large Mesh Merge", TestLargeMeshMerge);
+    runTest("Large Mesh Bounds", TestLargeMeshBounds);
+    runTest("Large Mesh Transform", TestLargeMeshTransform);
+    runTest("Large Mesh Mirror", TestLargeMeshMirror);
+    runTest("UniversalModel Many Meshes", TestUniversalModelManyMeshes);
     
     std::cout << std::endl << "=== Results: " << testsPassed << " passed, " << testsFailed << " failed ===" << std::endl;
     
