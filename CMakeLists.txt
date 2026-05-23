@@ -320,6 +320,9 @@ set(BSOS_OUTFIT_STUDIO_SOURCES
 	src/program/SliderDataImportDialog.cpp
 	src/render/GLCanvas.cpp
 	src/render/GLDialog.cpp
+	src/preview/MeshSerializer.cpp
+	src/preview/WebPreviewServer.cpp
+	src/preview/PreviewDialog.cpp
 )
 
 set(BSOS_BODYSLIDE_SOURCES

@@ -1,0 +1,1517 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+<meta charset=UTF-8>
+<meta name=viewport content='width=device-width, initial-scale=1.0'>
+<title>PolyForge 3D Preview</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg-primary: #0a0a0c;
+  --bg-secondary: #12121a;
+  --bg-tertiary: #1a1a24;
+  --bg-panel: #14141c;
+  --border-subtle: #2a2a38;
+  --border-active: #3d3d52;
+  --text-primary: #e8e8f0;
+  --text-secondary: #8888a0;
+  --text-muted: #5a5a70;
+  --accent-cyan: #00d4ff;
+  --accent-magenta: #ff2d7a;
+  --accent-amber: #ffaa00;
+  --accent-green: #00ff88;
+  --accent-purple: #aa55ff;
+  --danger: #ff4466;
+  --success: #00ff88;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Rajdhani', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+#loading-screen {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-primary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  transition: opacity 0.5s ease;
+}
+
+#loading-screen.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loading-spinner {
+  width: 60px;
+  height: 60px;
+  border: 3px solid var(--border-subtle);
+  border-top-color: var(--accent-cyan);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  margin-top: 20px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+#app {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* Sidebar */
+#sidebar {
+  width: 280px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.sidebar-header {
+  padding: 20px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.logo {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  margin-top: 4px;
+}
+
+.sidebar-section {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.section-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.panel-btn {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.panel-btn:hover {
+  background: var(--bg-panel);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+
+.panel-btn.active {
+  background: rgba(0, 212, 255, 0.1);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+
+.panel-btn svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* Viewport */
+#viewport-container {
+  flex: 1;
+  position: relative;
+  background: var(--bg-primary);
+}
+
+#canvas-container {
+  width: 100%;
+  height: 100%;
+}
+
+canvas {
+  display: block;
+}
+
+/* Overlay controls */
+#viewport-overlay {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.overlay-btn {
+  width: 40px;
+  height: 40px;
+  background: rgba(18, 18, 26, 0.9);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  pointer-events: auto;
+  backdrop-filter: blur(8px);
+}
+
+.overlay-btn:hover {
+  background: rgba(0, 212, 255, 0.1);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+
+.overlay-btn.active {
+  background: rgba(0, 212, 255, 0.2);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+
+.overlay-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Stats panel */
+#stats-panel {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(18, 18, 26, 0.9);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  backdrop-filter: blur(8px);
+  min-width: 160px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.stat-row:last-child {
+  border-bottom: none;
+}
+
+.stat-label {
+  color: var(--text-muted);
+}
+
+.stat-value {
+  color: var(--accent-cyan);
+  font-weight: 500;
+}
+
+/* Info bar */
+#info-bar {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(18, 18, 26, 0.9);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  backdrop-filter: blur(8px);
+  display: flex;
+  gap: 24px;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.info-item svg {
+  width: 16px;
+  height: 16px;
+  color: var(--accent-cyan);
+}
+
+/* Properties panel */
+#properties-panel {
+  position: absolute;
+  right: 16px;
+  top: 80px;
+  width: 260px;
+  background: rgba(18, 18, 26, 0.95);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  backdrop-filter: blur(8px);
+  display: none;
+}
+
+#properties-panel.visible {
+  display: block;
+}
+
+.properties-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.properties-content {
+  padding: 12px 16px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.prop-group {
+  margin-bottom: 16px;
+}
+
+.prop-group-title {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.prop-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 12px;
+}
+
+.prop-label {
+  color: var(--text-secondary);
+}
+
+.prop-value {
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Bone list */
+#bone-list {
+  position: absolute;
+  left: 16px;
+  top: 80px;
+  width: 200px;
+  background: rgba(18, 18, 26, 0.95);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  backdrop-filter: blur(8px);
+  max-height: 400px;
+  overflow-y: auto;
+  display: none;
+}
+
+#bone-list.visible {
+  display: block;
+}
+
+.bone-list-header {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.bone-item {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bone-item:hover {
+  background: rgba(0, 212, 255, 0.1);
+}
+
+.bone-item.selected {
+  background: rgba(0, 212, 255, 0.15);
+  color: var(--accent-cyan);
+}
+
+.bone-color {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-amber);
+}
+
+/* File drop zone */
+#drop-zone {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 12, 0.95);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+}
+
+#drop-zone.active {
+  display: flex;
+}
+
+.drop-content {
+  text-align: center;
+  padding: 60px;
+  border: 2px dashed var(--accent-cyan);
+  border-radius: 16px;
+  background: rgba(0, 212, 255, 0.05);
+}
+
+.drop-icon {
+  width: 64px;
+  height: 64px;
+  color: var(--accent-cyan);
+  margin-bottom: 20px;
+}
+
+.drop-text {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.drop-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Slider controls */
+.slider-group {
+  margin-bottom: 12px;
+}
+
+.slider-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.slider-value {
+  color: var(--accent-cyan);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+input[type=range] {
+  width: 100%;
+  height: 4px;
+  -webkit-appearance: none;
+  background: var(--border-subtle);
+  border-radius: 2px;
+  outline: none;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  background: var(--accent-cyan);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+/* Checkbox toggle */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.toggle-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.toggle {
+  width: 36px;
+  height: 20px;
+  background: var(--border-subtle);
+  border-radius: 10px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.toggle.active {
+  background: var(--accent-cyan);
+}
+
+.toggle::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s ease;
+}
+
+.toggle.active::after {
+  transform: translateX(16px);
+}
+
+/* Close button */
+.close-btn {
+  width: 24px;
+  height: 24px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.close-btn:hover {
+  background: var(--danger);
+  color: white;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease forwards;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  #sidebar {
+    position: fixed;
+    left: -280px;
+    height: 100%;
+    z-index: 100;
+    transition: left 0.3s ease;
+  }
+  
+  #sidebar.open {
+    left: 0;
+  }
+  
+  #stats-panel {
+    font-size: 10px;
+    min-width: 120px;
+  }
+  
+  #info-bar {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    max-width: 90%;
+  }
+}
+</style>
+</head>
+<body>
+
+<div id=loading-screen>
+  <div class=loading-spinner></div>
+  <div class=loading-text>Initializing Renderer</div>
+</div>
+
+<div id=drop-zone>
+  <div class=drop-content>
+    <svg class=drop-icon viewBox='0 0 24 24' fill=none stroke=currentColor stroke-width=1.5>
+      <path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12'/>
+    </svg>
+    <div class=drop-text>Drop GLTF / GLB file here</div>
+    <div class=drop-hint>or click to browse</div>
+  </div>
+</div>
+
+<div id=app>
+  <div id=sidebar>
+    <div class=sidebar-header>
+      <div class=logo>PolyForge</div>
+      <div class=subtitle>3D Preview System</div>
+    </div>
+    
+    <div class=sidebar-section>
+      <div class=section-title>Display</div>
+      <button class=panel-btn id=btn-wireframe>
+        <svg viewBox='0 0 24 24' fill=none stroke=currentColor stroke-width=2>
+          <path d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/>
+        </svg>
+        Wireframe
+      </button>
+      <button class=panel-btn id=btn-skeleton active>
+        <svg viewBox='0 0 24 24' fill=none stroke=currentColor stroke-width=2>
+          <circle cx=12 cy=5 cx=12 cy=5 r=3/><circle cx=6 cy=19 cx=6 cy=19 r=3/><circle cx=18 cy=19 cx=18 cy=19 r=3/>
+          <line x1=12 y1=8 x2=6 y2=16'/><line x1=12 y1=8 x2=18 y2=16'/><line x1=6 y1=16 x2=18 y2=16'/>
+        </svg>
+        Skeleton
+      </button>
+      <button class=panel-btn id=btn-vertices>
+        <svg viewBox='0 0 24 24' fill=none stroke=currentColor stroke-width=2>
+          <circle cx=12 cy=12 r=3/><circle cx=6 cy=6 r=2'/><circle cx=18 cy=18 r=2'/><circle cx=6 cy=18 r=2'/><circle cx=18 cy=6 r=2'/>
+        </svg>
+        Vertices
+      </button>
+    </div>
+    
+    <div class=sidebar-section>
+      <div class=section-title>Lighting</div>
+      <button class=panel-btn id=btn-autorotate>
+        <svg viewBox='0 0 24 24' fill=none stroke=currentColor stroke-width=2>
+          <path d='M21 12a9 9 0 1 1-6.219-8.56'/>
+        </svg>
+        Auto Rotate
+      </button>
+      <button class=panel-btn id=btn-smooth>
+        <svg viewBox='0 0 24 24' fill=none stroke=currentColor stroke-width=2>
+          <path d='M12 3v18M3 12h18'/>
+        </svg>
+        Smooth Shading
+      </button>
+    </div>
+    
+    <div class=sidebar-section>
+      <div class=section-title>Environment</div>
+      <button class=panel-btn id=btn-grid active>
+        <svg viewBox='0 0 24 24' fill=none stroke=currentColor stroke-width=2>
+          <path d='M3 3h18v18H3zM3 9h18M3 15h18M9 3v18M15 3v18'/>
+        </svg>
+        Ground Grid
+      </button>
+      <button class=panel-btn id=btn-environment>
+        <svg viewBox='0 0 24 24' fill=none stroke=currentColor stroke-width=2>
+          <circle cx=12 cy=12 r=10'/><path d='M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z'/>
+        </svg>
+        Environment Map
+      </button>
+    </div>
+    
+    <div class=sidebar-section>
+      <div class=section-title>Camera</div>
+      <div class=slider-group>
+        <div class=slider-label>
+          <span>FOV</span>
+          <span class=slider-value id=fov-value>45°</span>
+        </div>
+        <input type=range id=slider-fov min=20 max=90 value=45>
+      </div>
+      <div class=slider-group>
+        <div class=slider-label>
+          <span>Zoom</span>
+          <span class=slider-value id=zoom-value>100%</span>
+        </div>
+        <input type=range id=slider-zoom min=25 max=200 value=100>
+      </div>
+    </div>
+    
+    <div class=sidebar-section>
+      <div class=section-title>Skeleton</div>
+      <div class=toggle-row>
+        <span class=toggle-label>Show Bones</span>
+        <div class=toggle active id=toggle-bones></div>
+      </div>
+      <div class=toggle-row>
+        <span class=toggle-label>Show Weights</span>
+        <div class=toggle id=toggle-weights></div>
+      </div>
+      <div class=toggle-row>
+        <span class=toggle-label>Animate</span>
+        <div class=toggle id=toggle-animate></div>
+      </div>
+    </div>
+  </div>
+  
+  <div id=viewport-container>
+    <div id=canvas-container></div>
+    
+    <div id=viewport-overlay>
+      <button class=overlay-btn id=btn-reset-view title='Reset View'>
+        <svg viewBox='0 0 24 24' fill=none stroke=currentColor stroke-width=2>
+          <path d='M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/><polyline points='9 22 9 12 15 12 15 22'/>
+        </svg>
+      </button>
+      <button class=overlay-btn id=btn-front-view title='Front View'>
+        <svg viewBox='0 0 24 24' fill=none stroke=currentColor stroke-width=2>
+          <path d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/>
+        </svg>
+      </button>
+      <button class=overlay-btn id=btn-side-view title='Side View'>
+        <svg viewBox='0 0 24 24' fill=none stroke=currentColor stroke-width=2>
+          <rect x=3 y=3 width=18 height=18 rx=2 ry=2'/><line x1=3 y1=9 x2=21 y2=9'/><line x1=3 y1=15 x2=21 y2=15'/>
+        </svg>
+      </button>
+      <button class=overlay-btn id=btn-top-view title='Top View'>
+        <svg viewBox='0 0 24 24' fill=none stroke=currentColor stroke-width=2>
+          <circle cx=12 cy=12 r=10'/><line x1=12 y1=2 x2=12 y2=22'/><line x1=2 y1=12 x2=22 y2=12'/>
+        </svg>
+      </button>
+    </div>
+    
+    <div id=stats-panel>
+      <div class=stat-row>
+        <span class=stat-label>Vertices</span>
+        <span class=stat-value id=stat-vertices>0</span>
+      </div>
+      <div class=stat-row>
+        <span class=stat-label>Triangles</span>
+        <span class=stat-value id=stat-triangles>0</span>
+      </div>
+      <div class=stat-row>
+        <span class=stat-label>Bones</span>
+        <span class=stat-value id=stat-bones>0</span>
+      </div>
+      <div class=stat-row>
+        <span class=stat-label>Meshes</span>
+        <span class=stat-value id=stat-meshes>0</span>
+      </div>
+      <div class=stat-row>
+        <span class=stat-label>FPS</span>
+        <span class=stat-value id=stat-fps>0</span>
+      </div>
+    </div>
+    
+    <div id=info-bar>
+      <div class=info-item>
+        <svg viewBox='0 0 24 24' fill=none stroke=currentColor stroke-width=2>
+          <path d='M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z'/>
+        </svg>
+        <span id=file-name>No file loaded</span>
+      </div>
+      <div class=info-item>
+        <svg viewBox='0 0 24 24' fill=none stroke=currentColor stroke-width=2>
+          <circle cx=12 cy=12 r=10'/><polyline points='12 6 12 12 16 14'/>
+        </svg>
+        <span id=file-time>--:--:--</span>
+      </div>
+    </div>
+    
+    <div id=properties-panel>
+      <div class=properties-header>
+        <span>Material Properties</span>
+        <button class=close-btn id=close-properties>×</button>
+      </div>
+      <div class=properties-content id=material-props>
+        <div class=prop-group>
+          <div class=prop-group-title>Base Color</div>
+          <div class=prop-row>
+            <span class=prop-label>R</span>
+            <span class=prop-value id=prop-color-r>0</span>
+          </div>
+          <div class=prop-row>
+            <span class=prop-label>G</span>
+            <span class=prop-value id=prop-color-g>0</span>
+          </div>
+          <div class=prop-row>
+            <span class=prop-label>B</span>
+            <span class=prop-value id=prop-color-b>0</span>
+          </div>
+        </div>
+        <div class=prop-group>
+          <div class=prop-group-title>Material</div>
+          <div class=prop-row>
+            <span class=prop-label>Type</span>
+            <span class=prop-value id=prop-mat-type>--</span>
+          </div>
+          <div class=prop-row>
+            <span class=prop-label>Metalness</span>
+            <span class=prop-value id=prop-metal>0</span>
+          </div>
+          <div class=prop-row>
+            <span class=prop-label>Roughness</span>
+            <span class=prop-value id=prop-rough>0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div id=bone-list>
+      <div class=bone-list-header>Bones</div>
+      <div id=bone-items></div>
+    </div>
+  </div>
+</div>
+
+<script type=importmap>
+{
+  imports: {
+    three: 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js',
+    three/addons/: 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/'
+  }
+}
+</script>
+
+<script type=module>
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+// App state
+const state = {
+  wireframe: false,
+  skeleton: true,
+  vertices: false,
+  autorotate: false,
+  smoothShading: true,
+  grid: true,
+  showBones: true,
+  showWeights: false,
+  animate: false,
+  fov: 45,
+  zoom: 100,
+  fileName: null,
+  scene: null,
+  camera: null,
+  renderer: null,
+  controls: null,
+  composer: null,
+  skeletonHelper: null,
+  bones: [],
+  boneLines: null,
+  currentMixer: null,
+  clock: new THREE.Clock()
+};
+
+// DOM elements
+const els = {
+  loading: document.getElementById('loading-screen'),
+  dropZone: document.getElementById('drop-zone'),
+  statsPanel: document.getElementById('stats-panel'),
+  fileName: document.getElementById('file-name'),
+  fileTime: document.getElementById('file-time'),
+  boneList: document.getElementById('bone-list'),
+  boneItems: document.getElementById('bone-items'),
+  propertiesPanel: document.getElementById('properties-panel'),
+  statVertices: document.getElementById('stat-vertices'),
+  statTriangles: document.getElementById('stat-triangles'),
+  statBones: document.getElementById('stat-bones'),
+  statMeshes: document.getElementById('stat-meshes'),
+  statFps: document.getElementById('stat-fps'),
+  fovValue: document.getElementById('fov-value'),
+  zoomValue: document.getElementById('zoom-value'),
+  sliderFov: document.getElementById('slider-fov'),
+  sliderZoom: document.getElementById('slider-zoom')
+};
+
+// Initialize Three.js
+function init() {
+  const container = document.getElementById('canvas-container');
+  const w = container.clientWidth;
+  const h = container.clientHeight;
+  
+  // Scene
+  state.scene = new THREE.Scene();
+  state.scene.background = new THREE.Color(0x0a0a0c);
+  
+  // Camera
+  state.camera = new THREE.PerspectiveCamera(state.fov, w / h, 0.1, 1000);
+  state.camera.position.set(3, 2, 5);
+  
+  // Renderer
+  state.renderer = new THREE.WebGLRenderer({ antialias: true });
+  state.renderer.setSize(w, h);
+  state.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  state.renderer.shadowMap.enabled = true;
+  state.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  state.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  state.renderer.toneMappingExposure = 1.2;
+  container.appendChild(state.renderer.domElement);
+  
+  // Controls
+  state.controls = new OrbitControls(state.camera, state.renderer.domElement);
+  state.controls.enableDamping = true;
+  state.controls.dampingFactor = 0.08;
+  state.controls.minDistance = 0.5;
+  state.controls.maxDistance = 100;
+  
+  // Post-processing
+  state.composer = new EffectComposer(state.renderer);
+  state.composer.addPass(new RenderPass(state.scene, state.camera));
+  const bloomPass = new UnrealBloomPass(new THREE.Vector2(w, h), 0.3, 0.4, 0.85);
+  state.composer.addPass(bloomPass);
+  
+  // Lighting
+  setupLighting();
+  
+  // Grid
+  createGrid();
+  
+  // Events
+  setupEvents();
+  
+  // Start loop
+  animate();
+  
+  // Hide loading
+  setTimeout(() => els.loading.classList.add('hidden'), 500);
+}
+
+function setupLighting() {
+  // Ambient
+  const ambient = new THREE.AmbientLight(0x404060, 0.5);
+  state.scene.add(ambient);
+  
+  // Main directional (sun)
+  const sun = new THREE.DirectionalLight(0xfff5e6, 1.5);
+  sun.position.set(5, 10, 5);
+  sun.castShadow = true;
+  sun.shadow.mapSize.width = 2048;
+  sun.shadow.mapSize.height = 2048;
+  sun.shadow.camera.near = 0.5;
+  sun.shadow.camera.far = 50;
+  sun.shadow.camera.left = -10;
+  sun.shadow.camera.right = 10;
+  sun.shadow.camera.top = 10;
+  sun.shadow.camera.bottom = -10;
+  state.scene.add(sun);
+  
+  // Fill light
+  const fill = new THREE.DirectionalLight(0x6688cc, 0.4);
+  fill.position.set(-5, 3, -5);
+  state.scene.add(fill);
+  
+  // Rim light
+  const rim = new THREE.DirectionalLight(0xff2d7a, 0.3);
+  rim.position.set(0, 5, -10);
+  state.scene.add(rim);
+}
+
+function createGrid() {
+  const gridHelper = new THREE.GridHelper(20, 40, 0x2a2a38, 0x1a1a24);
+  gridHelper.material.opacity = 0.6;
+  gridHelper.material.transparent = true;
+  state.gridHelper = gridHelper;
+  state.scene.add(gridHelper);
+}
+
+function clearScene() {
+  // Dispose all geometries and materials
+  state.scene.traverse(obj => {
+    if (obj.geometry) obj.geometry.dispose();
+    if (obj.material) {
+      if (Array.isArray(obj.material)) {
+        obj.material.forEach(m => m.dispose());
+      } else {
+        obj.material.dispose();
+      }
+    }
+  });
+  
+  // Remove all except lights, grid, controls
+  const toRemove = state.scene.children.filter(
+    obj => !(obj.isLight || obj.isGridHelper || obj.isAmbientLight)
+  );
+  toRemove.forEach(obj => state.scene.remove(obj));
+  
+  state.bones = [];
+  state.skeletonHelper = null;
+  state.boneLines = null;
+  state.currentMixer = null;
+}
+
+function loadGLTF(url) {
+  clearScene();
+  
+  const loader = new GLTFLoader();
+  
+  loader.load(
+    url,
+    (gltf) => {
+      const model = gltf.scene;
+      
+      // Enable shadows
+      model.traverse(obj => {
+        if (obj.isMesh) {
+          obj.castShadow = true;
+          obj.receiveShadow = true;
+        }
+      });
+      
+      state.scene.add(model);
+      
+      // Center model
+      const box = new THREE.Box3().setFromObject(model);
+      const center = box.getCenter(new THREE.Vector3());
+      model.position.sub(center);
+      
+      // Scale to fit
+      const size = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const scale = 3 / maxDim;
+      model.scale.setScalar(scale);
+      
+      // Update camera
+      state.camera.position.set(3, 2, 5);
+      state.controls.target.set(0, 0, 0);
+      state.controls.update();
+      
+      // Statistics
+      let vertices = 0, triangles = 0, meshes = 0, bones = 0;
+      model.traverse(obj => {
+        if (obj.isMesh) {
+          meshes++;
+          const geo = obj.geometry;
+          vertices += geo.attributes.position?.count || 0;
+          triangles += geo.index ? geo.index.count / 3 : geo.attributes.position?.count / 3 || 0;
+        }
+        if (obj.isBone) bones++;
+      });
+      
+      els.statVertices.textContent = vertices.toLocaleString();
+      els.statTriangles.textContent = Math.round(triangles).toLocaleString();
+      els.statBones.textContent = bones;
+      els.statMeshes.textContent = meshes;
+      
+      // Create skeleton helper
+      if (bones > 0) {
+        createSkeletonHelper(model);
+      }
+      
+      // Animation
+      if (gltf.animations.length > 0) {
+        state.currentMixer = new THREE.AnimationMixer(model);
+        gltf.animations.forEach(clip => {
+          state.currentMixer.clipAction(clip).play();
+        });
+      }
+      
+      // Bone list
+      updateBoneList(model);
+      
+      // Apply current state
+      applyState();
+    },
+    (progress) => {
+      console.log('Loading:', (progress.loaded / progress.total * 100).toFixed(1) + '%');
+    },
+    (error) => {
+      console.error('Error loading GLTF:', error);
+    }
+  );
+}
+
+function createSkeletonHelper(model) {
+  // Hide default skeleton
+  model.traverse(obj => {
+    if (obj.isSkinnedMesh) {
+      obj.skeleton = null;
+    }
+  });
+  
+  // Collect bones
+  const boneArray = [];
+  model.traverse(obj => {
+    if (obj.isBone) {
+      boneArray.push(obj);
+    }
+  });
+  state.bones = boneArray;
+  
+  // Create visual skeleton
+  const boneGroup = new THREE.Group();
+  boneGroup.name = 'skeletonVisual';
+  
+  // Bones as spheres
+  const boneGeo = new THREE.SphereGeometry(0.02, 8, 8);
+  const boneMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+  
+  boneArray.forEach(bone => {
+    const sphere = new THREE.Mesh(boneGeo, boneMat);
+    sphere.position.copy(bone.getWorldPosition(new THREE.Vector3()));
+    boneGroup.add(sphere);
+  });
+  
+  // Bones as lines
+  const lineGeo = new THREE.BufferGeometry();
+  const linePositions = [];
+  
+  boneArray.forEach(bone => {
+    if (bone.parent && bone.parent.isBone) {
+      const start = bone.parent.getWorldPosition(new THREE.Vector3());
+      const end = bone.getWorldPosition(new THREE.Vector3());
+      linePositions.push(start.x, start.y, start.z);
+      linePositions.push(end.x, end.y, end.z);
+    }
+  });
+  
+  lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
+  const lineMat = new THREE.LineBasicMaterial({ color: 0xffaa00, opacity: 0.6, transparent: true });
+  const boneLines = new THREE.LineSegments(lineGeo, lineMat);
+  boneGroup.add(boneLines);
+  
+  state.skeletonHelper = boneGroup;
+  state.scene.add(boneGroup);
+}
+
+function updateBoneList(model) {
+  els.boneItems.innerHTML = '';
+  
+  const colors = [
+    0xffaa00, 0x00ff88, 0x00d4ff, 0xff2d7a, 
+    0xaa55ff, 0xff6644, 0x44ff88, 0x88ff44
+  ];
+  
+  state.bones.forEach((bone, i) => {
+    const item = document.createElement('div');
+    item.className = 'bone-item';
+    item.innerHTML = `
+      <div class=bone-color style='background:${colors[i % colors.length]}'></div>
+      <span>${bone.name || 'Bone ' + i}</span>
+    `;
+    item.onclick = () => {
+      // Highlight bone
+      state.controls.target.copy(bone.getWorldPosition(new THREE.Vector3()));
+      state.controls.update();
+    };
+    els.boneItems.appendChild(item);
+  });
+  
+  if (state.bones.length > 0) {
+    els.boneList.classList.add('visible');
+  }
+}
+
+function applyState() {
+  // Wireframe
+  state.scene.traverse(obj => {
+    if (obj.isMesh && obj.material) {
+      if (Array.isArray(obj.material)) {
+        obj.material.forEach(m => m.wireframe = state.wireframe);
+      } else {
+        obj.material.wireframe = state.wireframe;
+      }
+    }
+  });
+  
+  // Skeleton visibility
+  if (state.skeletonHelper) {
+    state.skeletonHelper.visible = state.skeleton;
+  }
+  
+  // Grid visibility
+  if (state.gridHelper) {
+    state.gridHelper.visible = state.grid;
+  }
+  
+  // Auto-rotate
+  state.controls.autoRotate = state.autorotate;
+  state.controls.autoRotateSpeed = 1.0;
+  
+  // FOV
+  state.camera.fov = state.fov;
+  state.camera.updateProjectionMatrix();
+  
+  // Smooth shading (normal recalculation)
+  if (state.smoothShading) {
+    state.scene.traverse(obj => {
+      if (obj.isMesh) {
+        obj.geometry.computeVertexNormals();
+      }
+    });
+  }
+}
+
+function setupEvents() {
+  // Window resize
+  window.addEventListener('resize', () => {
+    const container = document.getElementById('canvas-container');
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+    
+    state.camera.aspect = w / h;
+    state.camera.updateProjectionMatrix();
+    state.renderer.setSize(w, h);
+    state.composer.setSize(w, h);
+  });
+  
+  // Panel buttons
+  document.getElementById('btn-wireframe').onclick = () => {
+    state.wireframe = !state.wireframe;
+    document.getElementById('btn-wireframe').classList.toggle('active', state.wireframe);
+    applyState();
+  };
+  
+  document.getElementById('btn-skeleton').onclick = () => {
+    state.skeleton = !state.skeleton;
+    document.getElementById('btn-skeleton').classList.toggle('active', state.skeleton);
+    applyState();
+  };
+  
+  document.getElementById('btn-vertices').onclick = () => {
+    state.vertices = !state.vertices;
+    document.getElementById('btn-vertices').classList.toggle('active', state.vertices);
+    // TODO: Implement vertex dots visualization
+  };
+  
+  document.getElementById('btn-autorotate').onclick = () => {
+    state.autorotate = !state.autorotate;
+    document.getElementById('btn-autorotate').classList.toggle('active', state.autorotate);
+    applyState();
+  };
+  
+  document.getElementById('btn-smooth').onclick = () => {
+    state.smoothShading = !state.smoothShading;
+    document.getElementById('btn-smooth').classList.toggle('active', state.smoothShading);
+    applyState();
+  };
+  
+  document.getElementById('btn-grid').onclick = () => {
+    state.grid = !state.grid;
+    document.getElementById('btn-grid').classList.toggle('active', state.grid);
+    applyState();
+  };
+  
+  // View buttons
+  document.getElementById('btn-reset-view').onclick = () => {
+    state.camera.position.set(3, 2, 5);
+    state.controls.target.set(0, 0, 0);
+    state.controls.update();
+  };
+  
+  document.getElementById('btn-front-view').onclick = () => {
+    state.camera.position.set(0, 0, 5);
+    state.controls.target.set(0, 0, 0);
+    state.controls.update();
+  };
+  
+  document.getElementById('btn-side-view').onclick = () => {
+    state.camera.position.set(5, 0, 0);
+    state.controls.target.set(0, 0, 0);
+    state.controls.update();
+  };
+  
+  document.getElementById('btn-top-view').onclick = () => {
+    state.camera.position.set(0, 5, 0);
+    state.controls.target.set(0, 0, 0);
+    state.controls.update();
+  };
+  
+  // Sliders
+  els.sliderFov.oninput = (e) => {
+    state.fov = parseInt(e.target.value);
+    els.fovValue.textContent = state.fov + '°';
+    applyState();
+  };
+  
+  els.sliderZoom.oninput = (e) => {
+    state.zoom = parseInt(e.target.value);
+    els.zoomValue.textContent = state.zoom + '%';
+    const scale = state.zoom / 100;
+    state.camera.position.multiplyScalar(scale < 1 ? 0.95 : 1.05);
+    state.controls.update();
+  };
+  
+  // Toggles
+  document.getElementById('toggle-bones').onclick = (e) => {
+    state.showBones = !state.showBones;
+    e.target.classList.toggle('active', state.showBones);
+    if (state.skeletonHelper) state.skeletonHelper.visible = state.showBones;
+  };
+  
+  document.getElementById('toggle-weights').onclick = (e) => {
+    state.showWeights = !state.showWeights;
+    e.target.classList.toggle('active', state.showWeights);
+    // TODO: Implement weight visualization
+  };
+  
+  document.getElementById('toggle-animate').onclick = (e) => {
+    state.animate = !state.animate;
+    e.target.classList.toggle('active', state.animate);
+    if (state.currentMixer) {
+      state.animate ? state.currentMixer.update(state.clock.getDelta()) : state.currentMixer.stop();
+    }
+  };
+  
+  // Close properties panel
+  document.getElementById('close-properties').onclick = () => {
+    els.propertiesPanel.classList.remove('visible');
+  };
+  
+  // Drop zone
+  els.dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    els.dropZone.classList.add('active');
+  });
+  
+  els.dropZone.addEventListener('dragleave', () => {
+    els.dropZone.classList.remove('active');
+  });
+  
+  els.dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    els.dropZone.classList.remove('active');
+    
+    const file = e.dataTransfer.files[0];
+    if (file) loadFile(file);
+  });
+  
+  els.dropZone.addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.gltf,.glb';
+    input.onchange = (e) => {
+      if (e.target.files[0]) loadFile(e.target.files[0]);
+    };
+    input.click();
+  });
+  
+  // Update time
+  updateTime();
+  setInterval(updateTime, 1000);
+}
+
+function loadFile(file) {
+  state.fileName = file.name;
+  els.fileName.textContent = file.name;
+  
+  const url = URL.createObjectURL(file);
+  loadGLTF(url);
+}
+
+function updateTime() {
+  const now = new Date();
+  els.fileTime.textContent = now.toLocaleTimeString();
+}
+
+let frameCount = 0;
+let lastFpsUpdate = 0;
+
+function animate() {
+  requestAnimationFrame(animate);
+  
+  // Update controls
+  state.controls.update();
+  
+  // Update animation
+  if (state.currentMixer && state.animate) {
+    state.currentMixer.update(state.clock.getDelta());
+  }
+  
+  // Update bone positions for skeleton helper
+  if (state.skeletonHelper && state.showBones) {
+    state.bones.forEach((bone, i) => {
+      const sphere = state.skeletonHelper.children[0]?.children[i];
+      if (sphere) {
+        sphere.position.copy(bone.getWorldPosition(new THREE.Vector3()));
+      }
+    });
+  }
+  
+  // Render
+  state.composer.render();
+  
+  // FPS counter
+  frameCount++;
+  const now = performance.now();
+  if (now - lastFpsUpdate > 500) {
+    els.statFps.textContent = Math.round(frameCount * 1000 / (now - lastFpsUpdate));
+    frameCount = 0;
+    lastFpsUpdate = now;
+  }
+}
+
+// Listen for messages from C++ side
+window.addEventListener('message', (e) => {
+  if (e.data.type === 'loadMesh') {
+    // Receive mesh data and render
+    renderMeshFromData(e.data.mesh);
+  }
+});
+
+// WebSocket connection for live updates
+let ws = null;
+
+function connectWebSocket() {
+  ws = new WebSocket('ws://localhost:8765');
+  
+  ws.onopen = () => {
+    console.log('Connected to preview server');
+  };
+  
+  ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.type === 'meshUpdate') {
+      renderMeshFromData(data.mesh);
+    }
+  };
+  
+  ws.onclose = () => {
+    console.log('Disconnected from preview server');
+    setTimeout(connectWebSocket, 2000);
+  };
+}
+
+// Render mesh directly from JavaScript object (for live preview)
+function renderMeshFromData(meshData) {
+  clearScene();
+  
+  const { vertices, normals, uvs, indices, bones, skinWeights, skinIndices } = meshData;
+  
+  // Create geometry
+  const geometry = new THREE.BufferGeometry();
+  
+  const positions = new Float32Array(vertices);
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  
+  if (normals) {
+    geometry.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), 3));
+  }
+  
+  if (uvs) {
+    geometry.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uvs), 2));
+  }
+  
+  if (indices) {
+    geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
+  }
+  
+  // Material
+  const material = new THREE.MeshStandardMaterial({
+    color: 0x8888aa,
+    metalness: 0.1,
+    roughness: 0.5,
+    side: THREE.DoubleSide
+  });
+  
+  // Mesh
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  state.scene.add(mesh);
+  
+  // Stats
+  const vertexCount = vertices.length / 3;
+  const triangleCount = indices ? indices.length / 3 : vertexCount / 3;
+  
+  els.statVertices.textContent = vertexCount.toLocaleString();
+  els.statTriangles.textContent = Math.round(triangleCount).toLocaleString();
+  els.statBones.textContent = bones?.length || 0;
+  els.statMeshes.textContent = 1;
+  els.fileName.textContent = 'Live Preview';
+  
+  // Skeleton
+  if (bones && bones.length > 0) {
+    const boneGroup = new THREE.Group();
+    
+    const boneGeo = new THREE.SphereGeometry(0.02, 8, 8);
+    const boneMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+    
+    bones.forEach((bonePos, i) => {
+      const sphere = new THREE.Mesh(boneGeo, boneMat);
+      sphere.position.set(bonePos[0], bonePos[1], bonePos[2]);
+      boneGroup.add(sphere);
+    });
+    
+    state.skeletonHelper = boneGroup;
+    state.scene.add(boneGroup);
+  }
+  
+  // Fit camera
+  geometry.computeBoundingBox();
+  const box = geometry.boundingBox;
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const scale = 3 / maxDim;
+  
+  state.camera.position.set(3 * scale, 2 * scale, 5 * scale);
+  state.controls.target.set(0, 0, 0);
+  state.controls.update();
+  
+  applyState();
+}
+
+// Try connecting WebSocket (for embedded preview mode)
+//connectWebSocket();
+
+// Initialize
+init();
+
+// Expose for external use
+window.PolyForgePreview = {
+  loadGLTF,
+  renderMeshFromData,
+  getState: () => state
+};
+</script>
+</body>
+</html>
