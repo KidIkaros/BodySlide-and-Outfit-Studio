@@ -1005,6 +1005,132 @@ bool TestVertexSkinData() {
 	return true;
 }
 
+// Test: Vertex UV coordinate and color access
+bool TestVertexUVAndColor() {
+	Vertex v;
+	v.x = 1.0f; v.y = 2.0f; v.z = 3.0f;
+	v.nx = 0.0f; v.ny = 1.0f; v.nz = 0.0f;
+	v.u = 0.25f; v.v = 0.75f;  // UV coordinates
+	v.r = 0.9f; v.g = 0.1f; v.b = 0.5f; v.a = 1.0f;  // Red-ish color
+	v.id = 100;
+	
+	// Verify UV coordinates
+	REQUIRE(std::abs(v.u - 0.25f) < 0.001f);
+	REQUIRE(std::abs(v.v - 0.75f) < 0.001f);
+		
+	// Verify vertex colors
+	REQUIRE(std::abs(v.r - 0.9f) < 0.001f);
+	REQUIRE(std::abs(v.g - 0.1f) < 0.001f);
+	REQUIRE(std::abs(v.b - 0.5f) < 0.001f);
+	REQUIRE(std::abs(v.a - 1.0f) < 0.001f);
+	
+	// Test UV modification
+	v.u = 0.5f;
+	v.v = 0.5f;
+	REQUIRE(std::abs(v.u - 0.5f) < 0.001f);
+	REQUIRE(std::abs(v.v - 0.5f) < 0.001f);
+	
+	// Test color modification
+	v.r = 0.0f; v.g = 1.0f; v.b = 0.0f; v.a = 0.5f;  // Green with 50% alpha
+	REQUIRE(std::abs(v.r) < 0.001f);
+	REQUIRE(std::abs(v.g - 1.0f) < 0.001f);
+	REQUIRE(std::abs(v.b) < 0.001f);
+	REQUIRE(std::abs(v.a - 0.5f) < 0.001f);
+	
+	return true;
+}
+
+// Test: Submesh color array
+bool TestSubmeshColorArray() {
+	Submesh submesh;
+	submesh.startIndex = 0;
+	submesh.triangleCount = 10;
+	submesh.materialName = "Metal";
+	submesh.visible = true;
+	
+	// Set color as RGBA
+	submesh.color[0] = 1.0f;  // R
+	submesh.color[1] = 0.8f;  // G
+	submesh.color[2] = 0.6f;  // B
+	submesh.color[3] = 0.9f;  // A
+	
+	// Verify color values
+	REQUIRE(std::abs(submesh.color[0] - 1.0f) < 0.001f);
+	REQUIRE(std::abs(submesh.color[1] - 0.8f) < 0.001f);
+	REQUIRE(std::abs(submesh.color[2] - 0.6f) < 0.001f);
+	REQUIRE(std::abs(submesh.color[3] - 0.9f) < 0.001f);
+	
+	// Modify color
+	submesh.color[0] = 0.0f;
+	submesh.color[1] = 0.0f;
+	submesh.color[2] = 0.0f;
+	submesh.color[3] = 1.0f;  // Black, fully opaque
+	
+	REQUIRE(std::abs(submesh.color[0]) < 0.001f);
+	REQUIRE(std::abs(submesh.color[1]) < 0.001f);
+	REQUIRE(std::abs(submesh.color[2]) < 0.001f);
+	REQUIRE(std::abs(submesh.color[3] - 1.0f) < 0.001f);
+	
+	return true;
+}
+
+// Test: Animation metadata access
+bool TestAnimationMetadata() {
+	UniversalAnimation anim;
+	anim.name = "Idle";
+	anim.duration = 4.0f;
+	anim.framesPerSecond = 24.0f;
+	
+	// Add multiple metadata entries
+	anim.metadata["loop"] = "true";
+	anim.metadata["blendDuration"] = "0.5";
+	anim.metadata["priority"] = "1";
+	anim.metadata["author"] = "Animator";
+	
+	REQUIRE(anim.metadata.size() == 4);
+	REQUIRE(anim.metadata["loop"] == "true");
+	REQUIRE(anim.metadata["blendDuration"] == "0.5");
+	REQUIRE(anim.metadata["priority"] == "1");
+	REQUIRE(anim.metadata["author"] == "Animator");
+	
+	// Test metadata modification
+	anim.metadata["loop"] = "false";
+	REQUIRE(anim.metadata["loop"] == "false");
+	
+	// Test metadata removal
+	anim.metadata.erase("priority");
+	REQUIRE(anim.metadata.size() == 3);
+	REQUIRE(anim.metadata.find("priority") == anim.metadata.end());
+	
+	// Test adding new metadata after removal
+	anim.metadata["mirrored"] = "true";
+	REQUIRE(anim.metadata.size() == 4);
+	REQUIRE(anim.metadata["mirrored"] == "true");
+	
+	return true;
+}
+
+// Test: Vertex ID for welding/skinning
+bool TestVertexIdUsage() {
+	Vertex v1, v2, v3;
+	v1.id = 10;
+	v2.id = 20;
+	v3.id = 10;  // Same as v1
+	
+	REQUIRE(v1.id == 10);
+	REQUIRE(v2.id == 20);
+	REQUIRE(v3.id == 10);
+	REQUIRE(v1.id == v3.id);  // v1 and v3 have same ID
+	REQUIRE(v1.id != v2.id);  // v1 and v2 have different IDs
+	
+	// Vertex IDs should be unique identifiers for welding/skinning
+	// Two vertices with same ID are considered "same" vertex for welding
+	REQUIRE((v1.id == v3.id) == true);
+	REQUIRE((v1.id == v2.id) == false);
+	
+	return true;
+}
+
 // Test: Texture path management
 bool TestTexturePathManagement() {
 	UniversalMesh mesh;
@@ -1300,6 +1426,10 @@ int main() {
     runTest("VertexSkinData Structure", TestVertexSkinData);
     runTest("Texture Path Management", TestTexturePathManagement);
     runTest("Mesh Metadata", TestMeshMetadata);
+    runTest("Vertex UV and Color", TestVertexUVAndColor);
+    runTest("Submesh Color Array", TestSubmeshColorArray);
+    runTest("Animation Metadata", TestAnimationMetadata);
+    runTest("Vertex ID Usage", TestVertexIdUsage);
     runTest("Empty Mesh Operations", TestEmptyMeshOperations);
     runTest("Empty Mesh Weld", TestEmptyMeshWeld);
     runTest("Empty Mesh Transform", TestEmptyMeshTransform);
